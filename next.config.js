@@ -80,13 +80,19 @@ const nextConfig = withPWA({
       source: "/(.*)",
       headers: securityHeaders
     }, {
-      source: "/:path*(sw.js|workbox-*.js|manifest.json)",
+      source: "/:path*(sw.js|workbox-*.js)",
       headers: [{
         key: "Cache-Control",
         value: "public, max-age=0, must-revalidate"
       }, {
         key: "Service-Worker-Allowed",
         value: "/"
+      }]
+    }, {
+      source: "/manifest.json",
+      headers: [{
+        key: "Cache-Control",
+        value: "public, max-age=0, must-revalidate"
       }]
     }, {
       source: "/api/:path*",
@@ -104,17 +110,23 @@ const nextConfig = withPWA({
         value: "Content-Type, Authorization, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Date, X-Api-Version, Origin, X-CSRF-Token"
       }, ...noCache]
     }, {
-      source: "/:path*\\.:ext*",
+      source: "/_next/static/:path*",
       headers: staticCache
     }, {
-      source: "/_next/:path*",
+      source: "/_next/image/:path*",
+      headers: [{
+        key: "Cache-Control",
+        value: "public, max-age=31536000, immutable"
+      }]
+    }, {
+      source: "/:path*\\.(jpg|jpeg|gif|png|svg|ico|webp|avif|woff|woff2|ttf|eot|otf|css|js|map)",
       headers: staticCache
     }, {
       source: "/:path*",
       has: [{
         type: "header",
         key: "accept",
-        value: "text/html"
+        value: "(.*text/html.*)"
       }],
       headers: [...noCache, {
         key: "Pragma",

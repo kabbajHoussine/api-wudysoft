@@ -12,7 +12,7 @@ import {
 } from "rate-limiter-flexible";
 import requestIp from "request-ip";
 export const config = {
-  matcher: ["/api/:path*", "/((?!_next|api|favicon.ico|manifest.json|sw.js|workbox-|.*\\.).*))"]
+  matcher: ["/api/:path*", "/((?!_next/static|_next/image|favicon.ico|manifest.json|sw.js|workbox-.*\\.js|.*\\.(?:jpg|jpeg|gif|png|svg|ico|webp|avif|woff|woff2|ttf|eot|otf|css|js|map)).*)"]
 };
 
 function getClientIp(req) {
