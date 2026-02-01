@@ -4,7 +4,6 @@ import { Provider as ReduxProvider } from "react-redux";
 import { SessionProvider } from "next-auth/react";
 import store from "../store";
 import { HelmetProvider } from 'react-helmet-async';
-import DevtoolDetector from '@/components/DevtoolDetector';
 import CustomCookieConsent from "@/components/partials/widget/cookie-consent";
 
 import "react-toastify/dist/ReactToastify.css";
@@ -19,7 +18,6 @@ export default function Providers({ children, session }) {
     <SessionProvider session={session}>
       <HelmetProvider>
         <ReduxProvider store={store}>
-          <DevtoolDetector />
           {children}
           <CustomCookieConsent />
         </ReduxProvider>
