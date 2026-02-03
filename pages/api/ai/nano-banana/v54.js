@@ -7,7 +7,6 @@ import {
 } from "axios-cookiejar-support";
 import crypto from "crypto";
 import apiConfig from "@/configs/apiConfig";
-import SpoofHead from "@/lib/spoof-head";
 class NanoBanana {
   constructor() {
     this.jar = new CookieJar();
@@ -29,8 +28,7 @@ class NanoBanana {
         "sec-fetch-site": "same-origin",
         "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36",
         origin: "https://nano-banana2.org",
-        referer: "https://nano-banana2.org/",
-        ...SpoofHead()
+        referer: "https://nano-banana2.org/"
       }
     }));
     this.wudy = axios.create({

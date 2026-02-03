@@ -1,353 +1,374 @@
 import axios from "axios";
 import {
-  CookieJar
-} from "tough-cookie";
-import {
   wrapper
 } from "axios-cookiejar-support";
+import {
+  CookieJar
+} from "tough-cookie";
+import crypto from "crypto";
 import apiConfig from "@/configs/apiConfig";
-import Encoder from "@/lib/encoder";
 import SpoofHead from "@/lib/spoof-head";
-const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
-class NanoBananaAI {
-  constructor(options = {}) {
-    this.enableLogging = options.log ?? true;
-    this.cookieJar = new CookieJar();
-    this.session = null;
-    this.api = wrapper(axios.create({
-      baseURL: "https://nanobananaai.ai/api",
-      jar: this.cookieJar,
+class NanoBanana {
+  constructor() {
+    this.jar = new CookieJar();
+    this.client = wrapper(axios.create({
+      jar: this.jar,
       withCredentials: true,
       headers: {
-        accept: "*/*",
-        "accept-language": "id-ID",
         origin: "https://nanobananaai.ai",
         referer: "https://nanobananaai.ai/",
-        "sec-ch-ua": '"Chromium";v="127", "Not)A;Brand";v="99"',
-        "sec-ch-ua-mobile": "?1",
-        "sec-ch-ua-platform": '"Android"',
-        "user-agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Mobile Safari/537.36",
+        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36",
+        "accept-language": "id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7",
+        accept: "*/*",
+        "cache-control": "no-cache",
+        pragma: "no-cache",
         ...SpoofHead()
       }
     }));
-    this.supabase = axios.create({
-      baseURL: "https://qvkcckvxdltbongpgdvv.supabase.co/auth/v1",
-      headers: {
-        apikey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF2a2Nja3Z4ZGx0Ym9uZ3BnZHZ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU2OTY2NDIsImV4cCI6MjA3MTI3MjY0Mn0.IAv7Ec3JtvQrtChu2NQ5YeHEgM-SmpbSmnmthTQ_eu4",
-        authorization: "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF2a2Nja3Z4ZGx0Ym9uZ3BnZHZ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU2OTY2NDIsImV4cCI6MjA3MTI3MjY0Mn0.IAv7Ec3JtvQrtChu2NQ5YeHEgM-SmpbSmnmthTQ_eu4",
-        "x-client-info": "supabase-ssr/0.6.1 createBrowserClient",
-        "x-supabase-api-version": "2024-01-01"
-      }
-    });
-  }
-  log(message) {
-    if (this.enableLogging) console.log(`[LOG] ${new Date().toISOString()} - ${message}`);
-  }
-  async enc(data) {
-    const {
-      uuid: jsonUuid
-    } = await Encoder.enc({
-      data: data,
-      method: "combined"
-    });
-    return jsonUuid;
-  }
-  async dec(uuid) {
-    const decryptedJson = await Encoder.dec({
-      uuid: uuid,
-      method: "combined"
-    });
-    return decryptedJson.text;
-  }
-  async _handleImageUrl(imageUrl) {
-    this.log(`Memulai proses penanganan URL gambar: ${imageUrl.substring(0, 100)}...`);
-    if (imageUrl.startsWith("data:image/")) {
-      this.log("Gambar sudah dalam format Base64.");
-      return imageUrl;
-    }
-    if (imageUrl.startsWith("http")) {
-      try {
-        this.log("Mengunduh gambar dari URL...");
-        const response = await axios.get(imageUrl, {
-          responseType: "arraybuffer"
-        });
-        const base64 = Buffer.from(response.data).toString("base64");
-        const finalString = `data:${response.headers["content-type"]};base64,${base64}`;
-        this.log("✅ Gambar berhasil diunduh dan dikonversi ke Base64.");
-        return finalString;
-      } catch (error) {
-        this.log(`❌ Gagal mengunduh atau memproses gambar dari URL: ${error.message}`);
-        throw new Error(`Gagal mengunduh gambar dari URL: ${imageUrl}`);
-      }
-    }
-    throw new Error("Format imageUrl tidak valid.");
-  }
-  parseUserFromCookie() {
-    this.log("Mencoba mem-parsing data user dari cookie...");
-    try {
-      const cookies = this.cookieJar.getCookiesSync("https://nanobananaai.ai");
-      const authCookie = cookies.find(c => c.key.startsWith("sb-") && c.key.includes("-auth-token"));
-      if (authCookie?.value.startsWith("base64-")) {
-        const decoded = JSON.parse(Buffer.from(authCookie.value.replace("base64-", ""), "base64").toString("utf8"));
-        if (decoded?.user?.id) {
-          this.log(`✅ User ID '${decoded.user.id}' berhasil diekstrak dari cookie.`);
-          return decoded.user;
+    this.cfg = {
+      baseUrl: "https://nanobananaai.ai/api",
+      supabaseUrl: "https://qvkcckvxdltbongpgdvv.supabase.co/auth/v1",
+      anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF2a2Nja3Z4ZGx0Ym9uZ3BnZHZ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU2OTY2NDIsImV4cCI6MjA3MTI3MjY0Mn0.IAv7Ec3JtvQrtChu2NQ5YeHEgM-SmpbSmnmthTQ_eu4",
+      mailApi: `https://${apiConfig.DOMAIN_URL}/api/mails/v9`,
+      models: {
+        nano: {
+          id: "nano-banana",
+          type: "image",
+          path: "/generate/nano-banana",
+          validRatios: ["1:1", "9:16", "16:9", "3:4", "4:3"]
+        },
+        pro: {
+          id: "nano-banana-pro",
+          type: "image",
+          path: "/generate/nano-banana-pro",
+          validRatios: ["1:1", "2:3", "3:2", "16:9", "21:9"]
+        },
+        seedream: {
+          id: "seedream",
+          type: "image",
+          path: "/generate/seedream",
+          validRatios: ["1:1", "4:3", "3:4", "16:9"]
+        },
+        veo: {
+          id: "veo",
+          type: "video",
+          path: "/generate/veo",
+          validRatios: ["16:9", "9:16"]
+        },
+        wan: {
+          id: "wan",
+          type: "video",
+          path: "/generate/wan",
+          validRatios: ["1280*720", "720*1280", "1920*1080", "1080*1920"]
         }
       }
-      this.log("⚠️ Gagal menemukan data user yang valid di dalam cookie.");
-      return null;
-    } catch (error) {
-      this.log(`❌ Terjadi error saat mem-parsing cookie: ${error.message}`);
+    };
+    this.user = null;
+  }
+  log(msg, type = "INFO") {
+    const time = new Date().toLocaleTimeString();
+    console.log(`[${time}] [${type}] ${msg}`);
+  }
+  generatePKCE() {
+    const codeVerifier = crypto.randomBytes(32).toString("base64url");
+    const hash = crypto.createHash("sha256").update(codeVerifier).digest();
+    const codeChallenge = hash.toString("base64url");
+    return {
+      codeVerifier: codeVerifier,
+      codeChallenge: codeChallenge,
+      codeChallengeMethod: "s256"
+    };
+  }
+  async getBuffer(source) {
+    try {
+      if (Buffer.isBuffer(source)) return source;
+      if (typeof source === "string") {
+        if (source.startsWith("http")) {
+          const res = await axios.get(source, {
+            responseType: "arraybuffer"
+          });
+          return Buffer.from(res.data);
+        }
+        if (source.startsWith("data:")) {
+          return Buffer.from(source.split(",")[1], "base64");
+        }
+        return Buffer.from(source, "base64");
+      }
+      throw new Error("Invalid image source");
+    } catch (e) {
+      this.log(`Buffer Error: ${e.message}`, "ERROR");
       return null;
     }
   }
-  async authenticate() {
-    if (this.session) {
-      this.log("Sesi sudah ada, proses otentikasi dilewati.");
-      return this.session;
-    }
-    this.log("--- Memulai Proses Otentikasi Baru ---");
+  async toDataUri(buffer, mime = "image/jpeg") {
+    return `data:${mime};base64,${buffer.toString("base64")}`;
+  }
+  async createMail() {
     try {
-      this.log("Langkah 1: Membuat email sementara...");
-      const tempMailRes = await axios.get(`https://${apiConfig.DOMAIN_URL}/api/mails/v9?action=create`);
-      const email = tempMailRes.data?.email;
-      if (!email) throw new Error("API tidak mengembalikan email.");
-      this.log(`✅ Email sementara dibuat: ${email}`);
-      this.log("Langkah 2: Meminta pengiriman OTP...");
-      await this.supabase.post("/otp", {
-        email: email,
-        create_user: true
-      });
-      this.log("✅ Permintaan OTP berhasil dikirim.");
-      this.log("Langkah 3: Menunggu dan mengambil OTP...");
-      const verificationCode = await this.pollForOtp(email);
-      this.log(`✅ OTP diterima: ${verificationCode}`);
-      this.log("Langkah 4: Memverifikasi OTP...");
-      await this.api.post("/auth/verificationCode", {
-        email: email,
-        verificationCode: String(verificationCode)
-      });
-      this.log("✅ Verifikasi OTP berhasil.");
-      this.log("Langkah 5: Mengekstrak User ID dari cookie...");
-      const cookieUser = this.parseUserFromCookie();
-      if (!cookieUser?.id) throw new Error("Gagal mendapatkan user ID dari cookie.");
-      this.log("Langkah 6: Mengambil informasi lengkap user dari API...");
-      const fullUserInfo = await this.getUserInfo(cookieUser.id);
-      this.log("Langkah 7: Menyusun objek sesi...");
-      this.session = {
-        userId: fullUserInfo.user_id,
-        email: fullUserInfo.user_email,
-        ...fullUserInfo
-      };
-      this.session.cookieJar = this.cookieJar.toJSON();
-      this.log("✅ Sesi berhasil dibuat dan cookie disimpan.");
-      this.log("--- Proses Otentikasi Berhasil Diselesaikan ---");
-      return this.session;
-    } catch (error) {
-      this.log(`❌ Gagal total pada proses otentikasi: ${error.message}`);
-      this.session = null;
-      throw error;
+      this.log("Creating temp email...");
+      const {
+        data
+      } = await axios.get(`${this.cfg.mailApi}?action=create`);
+      const email = data?.email || data?.address;
+      if (!email) throw new Error("Failed to create email");
+      this.log(`Email created: ${email}`);
+      return email;
+    } catch (e) {
+      this.log(`Mail Create Error: ${e.message}`, "ERROR");
+      throw e;
     }
   }
-  async getUserInfo(userId) {
-    this.log(`Memanggil API /user dengan User ID: ${userId}`);
-    if (!userId) throw new Error("User ID tidak boleh kosong.");
+  async checkOtp(email) {
     try {
-      const response = await this.api.post("/user", {
+      this.log(`Checking OTP for ${email}...`);
+      let attempts = 0;
+      while (attempts < 60) {
+        const {
+          data
+        } = await axios.get(`${this.cfg.mailApi}?action=message&email=${email}`);
+        const msgs = data?.data || data;
+        if (msgs && msgs.length > 0) {
+          const content = msgs[0].text_content || msgs[0].body || "";
+          const match = content.match(/verification code:\s*\n*\s*(\d{6})/i);
+          if (match && match[1]) {
+            this.log(`OTP Found: ${match[1]}`);
+            return match[1];
+          }
+        }
+        await new Promise(r => setTimeout(r, 3e3));
+        attempts++;
+      }
+      throw new Error("OTP Timeout");
+    } catch (e) {
+      this.log(`Check OTP Error: ${e.message}`, "ERROR");
+      throw e;
+    }
+  }
+  async register() {
+    try {
+      const email = await this.createMail();
+      const pkce = this.generatePKCE();
+      this.log(`Generated PKCE - Verifier: ${pkce.codeVerifier.substring(0, 20)}..., Challenge: ${pkce.codeChallenge.substring(0, 20)}...`);
+      const verifierCookie = `sb-qvkcckvxdltbongpgdvv-auth-token-code-verifier=base64-${Buffer.from(JSON.stringify(pkce.codeVerifier)).toString("base64")}; Domain=.nanobananaai.ai; Path=/; Secure`;
+      await this.jar.setCookie(verifierCookie, "https://nanobananaai.ai");
+      this.log("Requesting OTP from Supabase...");
+      await axios.post(`${this.cfg.supabaseUrl}/otp`, {
+        email: email,
+        data: {},
+        create_user: true,
+        gotrue_meta_security: {},
+        code_challenge: pkce.codeChallenge,
+        code_challenge_method: pkce.codeChallengeMethod
+      }, {
+        headers: {
+          apikey: this.cfg.anonKey,
+          authorization: `Bearer ${this.cfg.anonKey}`,
+          "content-type": "application/json",
+          "x-client-info": "supabase-ssr/0.6.1 createBrowserClient",
+          "x-supabase-api-version": "2024-01-01"
+        }
+      });
+      const code = await this.checkOtp(email);
+      this.log("Verifying OTP with NanoBanana API...");
+      const verifyRes = await this.client.post(`${this.cfg.baseUrl}/auth/verificationCode`, JSON.stringify({
+        email: email,
+        verificationCode: code
+      }), {
+        headers: {
+          "content-type": "text/plain;charset=UTF-8"
+        }
+      });
+      if (verifyRes.data?.error) {
+        throw new Error(verifyRes.data.error);
+      }
+      this.log("Successfully verified OTP");
+      this.log("Fetching NanoBanana User Info...");
+      const cookies = await this.jar.getCookies("https://nanobananaai.ai");
+      const authCookie = cookies.find(c => c.key === "sb-qvkcckvxdltbongpgdvv-auth-token");
+      if (!authCookie) {
+        throw new Error("Auth cookie not found after verification");
+      }
+      const authTokenValue = authCookie.value.replace("base64-", "");
+      const authData = JSON.parse(Buffer.from(authTokenValue, "base64").toString());
+      const userId = authData.user?.id;
+      if (!userId) {
+        throw new Error("User ID not found in auth token");
+      }
+      this.log(`User ID from cookie: ${userId}`);
+      const userRes = await this.client.post(`${this.cfg.baseUrl}/user`, {
         user_id: userId
-      });
-      if (response.data?.data) {
-        this.log("✅ Informasi user berhasil didapatkan dari API.");
-        return response.data.data;
-      }
-      throw new Error("Format respons API /user tidak valid.");
-    } catch (error) {
-      this.log(`❌ Gagal saat memanggil API /user: ${error.message}`);
-      throw error;
-    }
-  }
-  async pollForOtp(email, maxAttempts = 60, interval = 3e3) {
-    this.log(`Memulai polling untuk OTP di email ${email}...`);
-    for (let i = 0; i < maxAttempts; i++) {
-      this.log(`Percobaan polling ke-${i + 1}/${maxAttempts}...`);
-      try {
-        const checkMailRes = await axios.get(`https://${apiConfig.DOMAIN_URL}/api/mails/v9?action=message&email=${email}`);
-        const otpMatch = checkMailRes.data?.data?.[0]?.text_content?.match(/\b(\d{6})\b/);
-        if (otpMatch?.[1]) {
-          this.log("✅ OTP ditemukan.");
-          return otpMatch[1];
+      }, {
+        headers: {
+          "content-type": "application/json"
         }
-      } catch (error) {
-        this.log(`⚠️ Peringatan saat polling: ${error.message}. Melanjutkan...`);
-      }
-      await sleep(interval);
-    }
-    throw new Error("Batas waktu untuk mendapatkan OTP terlampaui.");
-  }
-  async uploadImage(base64Image) {
-    this.log("Memulai proses upload gambar...");
-    try {
-      if (!this.session) await this.authenticate();
-      const mimeType = base64Image.substring(base64Image.indexOf(":") + 1, base64Image.indexOf(";"));
-      const response = await this.api.post("/upload/images", {
-        images: [base64Image],
-        mimeTypes: [mimeType]
       });
-      if (!response.data?.url) throw new Error("API tidak mengembalikan URL gambar.");
-      this.log(`✅ Gambar berhasil diunggah ke: ${response.data.url}`);
-      return response.data.url;
-    } catch (error) {
-      this.log(`❌ Gagal saat mengunggah gambar: ${error.message}`);
-      throw error;
-    }
-  }
-  async generate(payload) {
-    this.log(`Memulai proses generate untuk mode: "${payload.mode}"`);
-    try {
-      if (!this.session) await this.authenticate();
-      const finalPayload = {
-        ...payload,
-        user_id: this.session.userId,
-        user_email: this.session.email
-      };
-      this.log("Mengirim permintaan ke API /generate/nano-banana...");
-      const response = await this.api.post("/generate/nano-banana", finalPayload);
-      this.log(`✅ Task berhasil dibuat dengan ID: ${response.data?.taskId}`);
-      const encryptedData = {
-        taskId: response.data?.taskId,
-        session: this.session,
-        cookie: this.session.cookieJar
-      };
-      return await this.enc(encryptedData);
-    } catch (error) {
-      this.log(`❌ Gagal saat proses generate: ${error.message}`);
-      throw error;
-    }
-  }
-  async txt2img({
-    prompt,
-    ...rest
-  }) {
-    this.log(`Memulai tugas txt2img dengan prompt: "${prompt}"`);
-    return await this.generate({
-      prompt: prompt,
-      inputImages: [],
-      numImages: "1",
-      mode: "text-to-image",
-      ...rest
-    });
-  }
-  async img2img({
-    prompt,
-    imageUrl,
-    ...rest
-  }) {
-    this.log(`Memulai tugas img2img dengan prompt: "${prompt}"`);
-    try {
-      const imageUrls = Array.isArray(imageUrl) ? imageUrl : [imageUrl];
-      this.log(`Memproses ${imageUrls.length} gambar input secara berurutan...`);
-      const uploadedImageUrls = [];
-      for (const url of imageUrls) {
-        const base64DataUri = await this._handleImageUrl(url);
-        const uploadedUrl = await this.uploadImage(base64DataUri);
-        uploadedImageUrls.push(uploadedUrl);
+      this.user = userRes.data?.data;
+      if (!this.user) {
+        throw new Error("Failed to get user data from NanoBanana API");
       }
-      this.log("Semua gambar berhasil diunggah.");
-      return await this.generate({
+      await this.client.post(`${this.cfg.baseUrl}/utm-tracking`, {
+        utmData: {
+          landing_page: "https://nanobananaai.ai/"
+        },
+        user_id: this.user?.user_id
+      }).catch(() => {});
+      this.log(`✓ Logged in as User ID: ${this.user?.user_id}, Email: ${this.user?.user_email}, Credits: ${this.user?.left_credits}`);
+      return this.user;
+    } catch (e) {
+      this.log(`Register/Login Error: ${e.response?.data?.message || e.response?.data?.error || e.message}`, "ERROR");
+      if (e.response?.data) {
+        this.log(`Response Data: ${JSON.stringify(e.response.data)}`, "ERROR");
+      }
+      throw e;
+    }
+  }
+  async upload(images) {
+    try {
+      if (!images || !images.length) return [];
+      this.log(`Uploading ${images.length} image(s)...`);
+      const dataUris = [];
+      const mimeTypes = [];
+      for (const img of images) {
+        const buf = await this.getBuffer(img);
+        if (buf) {
+          dataUris.push(await this.toDataUri(buf));
+          mimeTypes.push("image/jpeg");
+        }
+      }
+      if (!dataUris.length) throw new Error("No valid images to upload");
+      const {
+        data
+      } = await this.client.post(`${this.cfg.baseUrl}/upload/images`, {
+        images: dataUris,
+        mimeTypes: mimeTypes
+      });
+      if (data.success && data.results) {
+        const urls = data.results.filter(r => r.success).map(r => r.url);
+        this.log(`Uploaded ${urls.length} images.`);
+        return urls;
+      }
+      throw new Error("Upload returned unsuccessful status");
+    } catch (e) {
+      this.log(`Upload Error: ${e.message}`, "ERROR");
+      return [];
+    }
+  }
+  async generate({
+    model = "nano",
+    prompt,
+    image,
+    ...rest
+  }) {
+    try {
+      if (!this.user) await this.register();
+      const mKey = Object.keys(this.cfg.models).find(k => k === model || this.cfg.models[k].id === model) || "nano";
+      const mCfg = this.cfg.models[mKey];
+      this.log(`Using model: ${mCfg.id}`);
+      let imageUrls = [];
+      if (image) {
+        const imgArray = Array.isArray(image) ? image : [image];
+        imageUrls = await this.upload(imgArray);
+      }
+      let payload = {
         prompt: prompt,
-        inputImages: uploadedImageUrls,
-        numImages: uploadedImageUrls.length.toString(),
-        mode: "image-edit",
+        user_id: this.user.user_id,
+        user_email: this.user.user_email,
         ...rest
-      });
-    } catch (error) {
-      this.log(`❌ Gagal pada alur img2img: ${error.message}`);
-      throw error;
+      };
+      if (mKey === "nano") {
+        payload = {
+          ...payload,
+          inputImages: imageUrls,
+          mode: imageUrls.length > 0 ? "image-edit" : "text-to-image",
+          output_format: rest.output_format || "png",
+          image_size: rest.ratio || rest.image_size || "1:1"
+        };
+      } else if (mKey === "pro") {
+        payload = {
+          ...payload,
+          image_input: imageUrls,
+          aspect_ratio: rest.ratio || "1:1",
+          resolution: rest.resolution || "1K",
+          output_format: rest.output_format || "png"
+        };
+      } else if (mKey === "seedream") {
+        payload = {
+          ...payload,
+          image_urls: imageUrls,
+          aspect_ratio: rest.ratio || "1:1",
+          quality: rest.quality || "basic"
+        };
+      } else if (mKey === "veo") {
+        payload = {
+          ...payload,
+          imageUrls: imageUrls,
+          aspectRatio: rest.ratio || "16:9",
+          generationType: imageUrls.length ? "REFERENCE_2_VIDEO" : "TEXT_2_VIDEO"
+        };
+      } else if (mKey === "wan") {
+        payload = {
+          ...payload,
+          imageUrls: imageUrls,
+          size: rest.ratio || "1280*720",
+          duration: rest.duration || 5,
+          generationType: imageUrls.length ? "WAN_IMAGE_TO_VIDEO" : "WAN_TEXT_TO_VIDEO"
+        };
+        if (imageUrls.length) payload.resolution = "1080p";
+      }
+      this.log(`Sending Task...`);
+      const {
+        data: taskRes
+      } = await this.client.post(`${this.cfg.baseUrl}${mCfg.path}`, payload);
+      const taskId = taskRes.taskId;
+      if (!taskId) throw new Error(`Failed to get Task ID. Response: ${JSON.stringify(taskRes)}`);
+      this.log(`Task Started: ${taskId}`);
+      return await this.poll(mCfg.path, taskId);
+    } catch (e) {
+      this.log(`Generate Error: ${e.response?.data?.error || e.message}`, "ERROR");
+      throw e;
     }
   }
-  async status({
-    task_id
-  }) {
-    const decryptedData = await this.dec(task_id);
-    const {
-      taskId,
-      session,
-      cookie
-    } = decryptedData;
-    if (!cookie || !taskId) {
-      throw new Error("Membutuhkan taskId dan cookie untuk memeriksa status.");
-    }
-    this.log(`Mempersiapkan pemeriksaan status untuk Task ID: ${taskId}`);
-    try {
-      if (!this.session && session && cookie) {
-        this.log("Sesi internal tidak ada. Mengadopsi sesi yang disediakan...");
-        this.cookieJar = CookieJar.fromJSON(JSON.stringify(cookie));
-        this.api.defaults.jar = this.cookieJar;
-        this.session = session;
-        this.log("✅ Sesi berhasil diadopsi.");
+  async poll(path, taskId) {
+    this.log("Polling for results...");
+    let attempts = 0;
+    const maxAttempts = 60;
+    while (attempts < maxAttempts) {
+      try {
+        const {
+          data
+        } = await this.client.get(`${this.cfg.baseUrl}${path}?taskId=${taskId}`);
+        if (data.status === 2) {
+          this.log("Task Completed Successfully!");
+          return data;
+        } else if (data.status === -1) {
+          throw new Error(data.error_msg || "Task Failed on Server");
+        } else {
+          if (attempts % 5 === 0) this.log(`Status: Processing... (${attempts})`);
+        }
+      } catch (e) {
+        if (e.message.includes("Task Failed")) throw e;
       }
-      if (!this.session) throw new Error("Sesi tidak valid untuk memeriksa status.");
-      this.log(`Mengirim permintaan status untuk Task ID: ${taskId}`);
-      const response = await this.api.get(`/generate/nano-banana?taskId=${taskId}`);
-      this.log(`✅ Status diterima: ${response.data.status}`);
-      return response.data;
-    } catch (error) {
-      this.log(`❌ Gagal memeriksa status: ${error.message}`);
-      throw error;
+      await new Promise(r => setTimeout(r, 4e3));
+      attempts++;
     }
+    throw new Error("Task Timeout");
   }
 }
 export default async function handler(req, res) {
-  const {
-    action,
-    ...params
-  } = req.method === "GET" ? req.query : req.body;
-  if (!action) {
+  const params = req.method === "GET" ? req.query : req.body;
+  if (!params.prompt) {
     return res.status(400).json({
-      error: "Action is required."
+      error: "Parameter 'prompt' diperlukan"
     });
   }
-  const api = new NanoBananaAI();
+  const api = new NanoBanana();
   try {
-    let response;
-    switch (action) {
-      case "img2img":
-        if (!params.prompt || !params.imageUrl) {
-          return res.status(400).json({
-            error: "Prompt and imageUrl are required for img2img."
-          });
-        }
-        response = await api.img2img(params);
-        return res.status(200).json({
-          task_id: response
-        });
-      case "txt2img":
-        if (!params.prompt) {
-          return res.status(400).json({
-            error: "Prompt is required for txt2img."
-          });
-        }
-        response = await api.txt2img(params);
-        return res.status(200).json({
-          task_id: response
-        });
-      case "status":
-        if (!params.task_id) {
-          return res.status(400).json({
-            error: "task_id is required for status."
-          });
-        }
-        response = await api.status(params);
-        return res.status(200).json(response);
-      default:
-        return res.status(400).json({
-          error: `Invalid action: ${action}. Supported actions are 'img2img', 'txt2img', and 'status'.`
-        });
-    }
+    const data = await api.generate(params);
+    return res.status(200).json(data);
   } catch (error) {
-    console.error("API Error:", error);
+    const errorMessage = error.message || "Terjadi kesalahan saat memproses.";
     return res.status(500).json({
-      error: error.message || "Internal Server Error"
+      error: errorMessage
     });
   }
 }
