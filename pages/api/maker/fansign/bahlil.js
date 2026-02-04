@@ -24,11 +24,11 @@ class BahlilGen {
     const photoKey = params.photo || "normal";
     const selectedPhoto = photoLibrary[photoKey] || photoLibrary.normal;
     const photo = selectedPhoto;
-    const fontType = params.font?.type || 3;
-    const fontSize = params.font?.size || 3;
-    const fontColor = params.font?.color || "#111111";
-    const fontWeight = params.font?.weight || "bold";
-    const shadowLevel = params.shadow?.level || 2;
+    const fontType = params.font_type || 1;
+    const fontSize = params.font_size || 3;
+    const fontColor = params.font_color || "#111111";
+    const fontWeight = params.font_weight || "bold";
+    const shadowLevel = params.shadow_level || 1;
     const finalText = text.length > 150 ? `${text.substring(0, 147)}...` : text;
     const htmlTemplate = `
 <!DOCTYPE html>
@@ -43,7 +43,8 @@ class BahlilGen {
     <script>
         const config = {
             text: "${finalText.replace(/"/g, '\\"')}",
-            paper: { x: 256, y: 1550, width: 1944, height: 1619 },
+            // Nilai paper statis di sini bisa diabaikan karena akan diganti secara dinamis
+            paper: { x: 256, y: 1550, width: 1944, height: 1619 }, 
             font: { size: ${fontSize}, type: ${fontType}, color: "${fontColor}", weight: "${fontWeight}" },
             shadow: { level: ${shadowLevel}, color: "rgba(0,0,0,0.5)" },
             textSettings: { maxChars: 100, lineHeight: 1.15 },
@@ -107,6 +108,7 @@ class BahlilGen {
             
             canvas.width = img.width;
             canvas.height = img.height;
+            // Gambar foto
             ctx.drawImage(img, 0, 0);
             
             const maxChars = clamp(parseInt(config.textSettings.maxChars) || 100, 10, 200);
@@ -116,7 +118,15 @@ class BahlilGen {
                 text = \`\${text.slice(0, maxChars - 3).trim()}...\`;
             }
             
-            const paper = config.paper;
+            // FIX: Atur 'paper' agar mencakup seluruh area gambar/kanvas
+            const paper = { 
+                x: 0, 
+                y: 0, 
+                width: img.width, 
+                height: img.height 
+            };
+            // const paper = config.paper; // Baris ini diganti
+            
             const pad = Math.round(paper.width * 0.07);
             const maxW = paper.width - pad * 2;
             const maxH = paper.height - pad * 2;
@@ -148,9 +158,11 @@ class BahlilGen {
             
             const lineH = Math.round(fontSize * config.textSettings.lineHeight);
             const totalH = lines.length * lineH;
+            // startX dan startY akan berada di tengah kanvas karena paper.x/y adalah 0 dan paper.width/height adalah img.width/height
             const startX = paper.x + paper.width / 2;
             let startY = paper.y + (paper.height - totalH) / 2 + lineH / 2;
             
+            // Gambar teks di atas foto
             ctx.fillStyle = config.font.color;
             for (const line of lines) {
                 ctx.fillText(line, startX, startY);
@@ -196,8 +208,6 @@ class BahlilGen {
   }
   async generate({
     text,
-    font,
-    photo,
     type = "v5",
     ...rest
   }) {
@@ -205,8 +215,6 @@ class BahlilGen {
     try {
       const htmlContent = this.genHtml({
         text: text,
-        font: font,
-        photo: photo,
         ...rest
       });
       const payload = {

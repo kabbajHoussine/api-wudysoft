@@ -19,24 +19,24 @@ class UstadzGen {
       mikir: "https://8upload.com/image/1115d78d226fc1e6/Generated_Image_February_04__2026_-_11_20AM.png",
       mulut: "https://8upload.com/image/2f9fbb9f0db3aea0/Generated_Image_February_04__2026_-_11_09AM.png"
     };
-    const photoKey = params.imageUrl || "normal";
+    const photoKey = params.photo || "normal";
     const selectedPhoto = photoLibrary[photoKey] || photoLibrary.normal;
     const imageUrl = selectedPhoto;
-    const headerText = params.header?.text || "Soalan";
-    const headerBgColor = params.header?.bgColor || "#1a1a1a";
-    const headerTextColor = params.header?.textColor || "#ffffff";
-    const headerFontSize = params.header?.fontSize || "48px";
-    const headerFontFamily = params.header?.fontFamily || "'Montserrat', sans-serif";
-    const headerFontWeight = params.header?.weight || "600";
-    const headerPadding = params.header?.padding || "48px 60px";
-    const contentBgColor = params.content?.bgColor || "#ffffff";
-    const contentTextColor = params.content?.textColor || "#333333";
-    const contentFontSize = params.content?.fontSize || "44px";
-    const contentFontFamily = params.content?.fontFamily || "'Poppins', sans-serif";
-    const contentLineHeight = params.content?.lineHeight || "1.3";
-    const contentPadding = params.content?.padding || "40px";
-    const contentTextAlign = params.content?.textAlign || "center";
-    const contentFontWeight = params.content?.fontWeight || "400";
+    const headerText = params.header_text || "Soalan";
+    const headerBgColor = params.header_bgColor || "#1a1a1a";
+    const headerTextColor = params.header_textColor || "#ffffff";
+    const headerFontSize = params.header_fontSize || "48px";
+    const headerFontFamily = params.header_fontFamily || "'Montserrat', sans-serif";
+    const headerFontWeight = params.header_weight || "600";
+    const headerPadding = params.header_padding || "48px 60px";
+    const contentBgColor = params.content_bgColor || "#ffffff";
+    const contentTextColor = params.content_textColor || "#333333";
+    const contentFontSize = params.content_fontSize || "44px";
+    const contentFontFamily = params.content_fontFamily || "'Poppins', sans-serif";
+    const contentLineHeight = params.content_lineHeight || "1.3";
+    const contentPadding = params.content_padding || "40px";
+    const contentTextAlign = params.content_textAlign || "center";
+    const contentFontWeight = params.content_fontWeight || "400";
     const htmlTemplate = `
 <!DOCTYPE html>
 <html lang="id">
@@ -54,10 +54,11 @@ class UstadzGen {
             position:absolute;
             top:120px;
             left:50%;
-            transform:translateX(-50%) rotate(0deg);
+            /* FIX: Menyederhanakan transform */
+            transform:translateX(-50%); 
             width:80%;
             max-width:800px;
-            z-index:10;
+            z-index:10; /* Z-index 10 memastikan overlay berada di atas canvas */
         }
         #card{
             border-radius:20px;
@@ -154,6 +155,8 @@ class UstadzGen {
             canvas.width = image.width;
             canvas.height = image.height;
             ctx.drawImage(image, 0, 0);
+            
+            // PENTING: Menetapkan dimensi container agar overlay (absolute) bekerja dengan benar.
             document.getElementById('image-container').style.width = canvas.width + 'px';
             document.getElementById('image-container').style.height = canvas.height + 'px';
         };
@@ -178,6 +181,7 @@ class UstadzGen {
             ctx.fillText("Gambar Tidak Dapat Dimuat", textX, textY - 30);
             ctx.fillText("Tampilkan Card Soalan Saja", textX, textY + 30);
             
+            // PENTING: Menetapkan dimensi container juga saat error.
             document.getElementById('image-container').style.width = canvas.width + 'px';
             document.getElementById('image-container').style.height = canvas.height + 'px';
         };
@@ -207,9 +211,6 @@ class UstadzGen {
   }
   async generate({
     text,
-    imageUrl,
-    header,
-    content,
     type = "v5",
     ...rest
   }) {
@@ -217,9 +218,6 @@ class UstadzGen {
     try {
       const htmlContent = this.genHtml({
         text: text,
-        imageUrl: imageUrl,
-        header: header,
-        content: content,
         ...rest
       });
       const payload = {
