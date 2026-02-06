@@ -171,7 +171,7 @@ const nextConfig = withPWA({
         deadCodeInjection: false,
         selfDefending: false,
         disableConsoleOutput: true
-      }));
+      }, ["node_modules/**"]));
     }
     return config;
   }

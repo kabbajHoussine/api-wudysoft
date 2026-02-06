@@ -10,6 +10,52 @@ class UstadzGen {
       },
       timeout: 6e4
     });
+    this.fontPresets = {
+      1: {
+        family: "'Montserrat', sans-serif",
+        name: "Montserrat",
+        weights: "400;600"
+      },
+      2: {
+        family: "'Poppins', sans-serif",
+        name: "Poppins",
+        weights: "400;500"
+      },
+      3: {
+        family: "'Roboto', sans-serif",
+        name: "Roboto",
+        weights: "400;700"
+      },
+      4: {
+        family: "'Oswald', sans-serif",
+        name: "Oswald",
+        weights: "400;700"
+      },
+      5: {
+        family: "'Merriweather', serif",
+        name: "Merriweather",
+        weights: "400;700"
+      }
+    };
+  }
+  getFontConfig(paramFont, defaultKey) {
+    let fontConfig = this.fontPresets[defaultKey];
+    if (paramFont && this.fontPresets[paramFont]) {
+      fontConfig = this.fontPresets[paramFont];
+    } else if (typeof paramFont === "string") {
+      const foundKey = Object.keys(this.fontPresets).find(key => this.fontPresets[key].family === paramFont);
+      if (foundKey) {
+        fontConfig = this.fontPresets[foundKey];
+      } else {
+        const name = paramFont.replace(/['"]|,.*$/g, "").trim();
+        fontConfig = {
+          family: paramFont,
+          name: name.length > 0 ? name : "Arial",
+          weights: "400"
+        };
+      }
+    }
+    return fontConfig;
   }
   genHtml(params) {
     const questionText = params.text?.trim() || "Ustadz";
@@ -19,24 +65,50 @@ class UstadzGen {
       mikir: "https://8upload.com/image/1115d78d226fc1e6/Generated_Image_February_04__2026_-_11_20AM.png",
       mulut: "https://8upload.com/image/2f9fbb9f0db3aea0/Generated_Image_February_04__2026_-_11_09AM.png"
     };
+    const canvasWidth = params.width || 832;
+    const canvasHeight = params.height || 1248;
     const photoKey = params.photo || "normal";
     const selectedPhoto = photoLibrary[photoKey] || photoLibrary.normal;
     const imageUrl = selectedPhoto;
+    const headerFontConfig = this.getFontConfig(params.header_font || params.header_fontFamily, 1);
+    const contentFontConfig = this.getFontConfig(params.content_font || params.content_fontFamily, 2);
     const headerText = params.header_text || "Soalan";
     const headerBgColor = params.header_bgColor || "#1a1a1a";
     const headerTextColor = params.header_textColor || "#ffffff";
     const headerFontSize = params.header_fontSize || "48px";
-    const headerFontFamily = params.header_fontFamily || "'Montserrat', sans-serif";
+    const headerFontFamily = headerFontConfig.family;
     const headerFontWeight = params.header_weight || "600";
     const headerPadding = params.header_padding || "48px 60px";
     const contentBgColor = params.content_bgColor || "#ffffff";
     const contentTextColor = params.content_textColor || "#333333";
     const contentFontSize = params.content_fontSize || "44px";
-    const contentFontFamily = params.content_fontFamily || "'Poppins', sans-serif";
+    const contentFontFamily = contentFontConfig.family;
     const contentLineHeight = params.content_lineHeight || "1.3";
     const contentPadding = params.content_padding || "40px";
     const contentTextAlign = params.content_textAlign || "center";
     const contentFontWeight = params.content_fontWeight || "400";
+    const uniqueFonts = new Map();
+    [headerFontConfig, contentFontConfig].forEach(conf => {
+      if (conf.name && !["serif", "sans-serif", "monospace", "cursive", "fantasy", "arial", "georgia", "times new roman"].includes(conf.name.toLowerCase())) {
+        const existingWeights = uniqueFonts.get(conf.name) || [];
+        const newWeights = conf.weights.split(";").map(w => w.trim()).filter(w => w);
+        const combinedWeights = new Set([...existingWeights, ...newWeights]);
+        uniqueFonts.set(conf.name, Array.from(combinedWeights));
+      }
+    });
+    let dynamicFontLinks = "";
+    if (uniqueFonts.size > 0) {
+      const fontUrlParams = Array.from(uniqueFonts.entries()).map(([name, weights]) => {
+        let url = `family=${name.replace(/ /g, "+")}`;
+        if (weights.length > 0) {
+          url += `:wght@${weights.join(";")}`;
+        }
+        return url;
+      }).join("&");
+      dynamicFontLinks = `<link href="https://fonts.googleapis.com/css2?${fontUrlParams}&display=swap" rel="stylesheet">`;
+    } else {
+      dynamicFontLinks = `<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600&family=Poppins:wght@400;500&display=swap" rel="stylesheet">`;
+    }
     const htmlTemplate = `
 <!DOCTYPE html>
 <html lang="id">
@@ -44,21 +116,21 @@ class UstadzGen {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Canvas dengan Card Soalan</title>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600&family=Poppins:wght@400;500&display=swap" rel="stylesheet">
+    <!-- Font Kustom Dinamis -->
+    ${dynamicFontLinks}
     <style>
         *{margin:0;padding:0;box-sizing:border-box}
-        body{font-family:'Poppins',sans-serif;background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);min-height:100vh;display:flex;justify-content:center;align-items:center;padding:20px}
-        #image-container{position:relative;max-width:1200px;width:100%;line-height:0}
-        #imageCanvas{display:block;width:100%;height:auto}
+        body{font-family:'Poppins',sans-serif;background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);min-height:100vh;display:flex;justify-content:center;align-items:center;padding:0} 
+        #image-container{position:relative;width:${canvasWidth}px;height:${canvasHeight}px;line-height:0;overflow:hidden} 
+        #imageCanvas{display:block;width:100%;height:100%} 
         #card-overlay{
             position:absolute;
             top:120px;
             left:50%;
-            /* FIX: Menyederhanakan transform */
             transform:translateX(-50%); 
             width:80%;
-            max-width:800px;
-            z-index:10; /* Z-index 10 memastikan overlay berada di atas canvas */
+            max-width:100%; 
+            z-index:10; 
         }
         #card{
             border-radius:20px;
@@ -67,8 +139,6 @@ class UstadzGen {
         #card-header{padding:30px 50px;text-align:center;background:#1a1a1a}
         #card-title{font-family:'Montserrat',sans-serif;font-weight:600;letter-spacing:1px;color:#fff;font-size:36px}
         #card-content{padding:40px;line-height:1.9;background:#fff;color:#333;font-size:26px;font-weight:500}
-        @media(max-width:768px){#card-header{padding:25px 35px}#card-content{padding:30px;font-size:24px}#card-title{font-size:32px}}
-        @media(max-width:480px){#card-header{padding:20px 30px}#card-content{padding:25px;font-size:22px}#card-title{font-size:28px}}
     </style>
 </head>
 <body>
@@ -85,13 +155,14 @@ class UstadzGen {
     </div>
 
     <script>
+        const canvasDimensions = { width: ${canvasWidth}, height: ${canvasHeight} }; 
         const config = {
             header: {
-                text: "${headerText}",
+                text: "${headerText.replace(/"/g, '\\"')}",
                 bgColor: "${headerBgColor}",
                 textColor: "${headerTextColor}",
                 fontSize: "${headerFontSize}",
-                fontFamily: "${headerFontFamily}",
+                fontFamily: "${headerFontFamily.replace(/"/g, '\\"')}",
                 weight: "${headerFontWeight}",
                 padding: "${headerPadding}"
             },
@@ -99,7 +170,7 @@ class UstadzGen {
                 bgColor: "${contentBgColor}",
                 textColor: "${contentTextColor}",
                 fontSize: "${contentFontSize}",
-                fontFamily: "${contentFontFamily}",
+                fontFamily: "${contentFontFamily.replace(/"/g, '\\"')}",
                 lineHeight: "${contentLineHeight}",
                 padding: "${contentPadding}",
                 textAlign: "${contentTextAlign}",
@@ -117,6 +188,12 @@ class UstadzGen {
         const cardHeader = document.getElementById('card-header');
         const cardTitle = document.getElementById('card-title');
         const cardContent = document.getElementById('card-content');
+        const imageContainer = document.getElementById('image-container');
+        
+        canvas.width = canvasDimensions.width;
+        canvas.height = canvasDimensions.height;
+        imageContainer.style.width = canvas.width + 'px';
+        imageContainer.style.height = canvas.height + 'px';
 
         function applyConfig() {
             cardHeader.style.backgroundColor = config.header.bgColor;
@@ -152,18 +229,10 @@ class UstadzGen {
         image.src = imageUrl;
         
         image.onload = function() {
-            canvas.width = image.width;
-            canvas.height = image.height;
-            ctx.drawImage(image, 0, 0);
-            
-            // PENTING: Menetapkan dimensi container agar overlay (absolute) bekerja dengan benar.
-            document.getElementById('image-container').style.width = canvas.width + 'px';
-            document.getElementById('image-container').style.height = canvas.height + 'px';
+            ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
         };
         
         image.onerror = function() {
-            canvas.width = 1200;
-            canvas.height = 675;
             const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
             gradient.addColorStop(0, "#1a2a6c");
             gradient.addColorStop(0.5, "#b21f1f");
@@ -171,7 +240,8 @@ class UstadzGen {
             ctx.fillStyle = gradient;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
-            ctx.font = "bold 44px 'Montserrat', sans-serif";
+            // Teks error
+            ctx.font = \`bold 44px \${config.header.fontFamily}\`;
             ctx.fillStyle = "#FFFFFF";
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
@@ -180,15 +250,11 @@ class UstadzGen {
             const textY = canvas.height * 0.5;
             ctx.fillText("Gambar Tidak Dapat Dimuat", textX, textY - 30);
             ctx.fillText("Tampilkan Card Soalan Saja", textX, textY + 30);
-            
-            // PENTING: Menetapkan dimensi container juga saat error.
-            document.getElementById('image-container').style.width = canvas.width + 'px';
-            document.getElementById('image-container').style.height = canvas.height + 'px';
         };
     </script>
 </body>
 </html>
-`;
+    `;
     return htmlTemplate;
   }
   async down(url) {
@@ -216,14 +282,18 @@ class UstadzGen {
   }) {
     console.log("[LOG] Memulai proses generate gambar...");
     try {
+      const finalWidth = rest?.width || 832;
+      const finalHeight = rest?.height || 1248;
       const htmlContent = this.genHtml({
         text: text,
+        width: finalWidth,
+        height: finalHeight,
         ...rest
       });
       const payload = {
         html: htmlContent,
-        width: rest?.width || 832,
-        height: rest?.height || 1248
+        width: finalWidth,
+        height: finalHeight
       };
       console.log("[LOG] Mengirim permintaan ke API generator...");
       const apiRes = await this.client.post(`/api/tools/html2img/${type}`, payload);

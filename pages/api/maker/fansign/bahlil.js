@@ -12,7 +12,7 @@ class BahlilGen {
     });
   }
   genHtml(params) {
-    const text = params.text?.trim() || "Bahlil";
+    const text = params.text || "Bahlil";
     const photoLibrary = {
       normal: "https://8upload.com/image/fea07694059184d8/IMG-20260203-WA0084.jpg",
       sad: "https://8upload.com/image/22a2bee870758cca/Generated_Image_February_03__2026_-_11_44PM.png",
@@ -24,168 +24,162 @@ class BahlilGen {
     const photoKey = params.photo || "normal";
     const selectedPhoto = photoLibrary[photoKey] || photoLibrary.normal;
     const photo = selectedPhoto;
-    const fontType = params.font_type || 1;
-    const fontSize = params.font_size || 3;
+    const fontType = params.font_type || 3;
     const fontColor = params.font_color || "#111111";
     const fontWeight = params.font_weight || "bold";
-    const shadowLevel = params.shadow_level || 1;
-    const finalText = text.length > 150 ? `${text.substring(0, 147)}...` : text;
+    const fontFamilyMap = {
+      1: "Arial, sans-serif",
+      2: "Georgia, serif",
+      3: "'Cinzel', 'Times New Roman', serif",
+      4: "'Playfair Display', serif"
+    };
+    const fontFamily = fontFamilyMap[fontType] || fontFamilyMap[3];
+    const defaultTextArea = {
+      top: .55,
+      height: .3,
+      left: .1,
+      width: .8
+    };
+    const textAreaConfig = params.textArea ? JSON.stringify(params.textArea) : JSON.stringify(defaultTextArea);
+    const blendMode = params.blendMode || "multiply";
+    const maxFontSize = params.max_font_size || 300;
+    const finalText = text.trim() || "SELAMAT DATANG DI PESANTREN AL FAJAR";
+    const escapedText = finalText.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n");
     const htmlTemplate = `
 <!DOCTYPE html>
-<html>
+<html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bahlil Canvas Generator</title>
+    <style>
+        body {margin:0;padding:0;background:#111;display:flex;justify-content:center;align-items:center;min-height:100vh;overflow:hidden}
+        canvas {display:block;max-width:100%;max-height:100vh}
+    </style>
 </head>
 <body>
-    <canvas id="canvas"></canvas>
+    <canvas id="bahlilCanvas"></canvas>
 
     <script>
-        const config = {
-            text: "${finalText.replace(/"/g, '\\"')}",
-            // Nilai paper statis di sini bisa diabaikan karena akan diganti secara dinamis
-            paper: { x: 256, y: 1550, width: 1944, height: 1619 }, 
-            font: { size: ${fontSize}, type: ${fontType}, color: "${fontColor}", weight: "${fontWeight}" },
-            shadow: { level: ${shadowLevel}, color: "rgba(0,0,0,0.5)" },
-            textSettings: { maxChars: 100, lineHeight: 1.15 },
-            photo: "${photo}"
+        // Data ini diambil dari parameter API
+        const setting = {
+            text: "${escapedText}",
+            photo: "${photo}",
+            textArea: ${textAreaConfig},
+            font: {family:"${fontFamily}",weight:"${fontWeight}",color:"${fontColor}"},
+            textSettings: {paddingPercent:0.05,lineHeight:1.15,minFontSize:10,maxFontSize:${maxFontSize}}, 
+            blendMode: "${blendMode}"
         };
-
-        const fonts = {
-            1: "Arial, sans-serif",
-            2: "Georgia, serif",
-            3: "'Cinzel', 'Times New Roman', serif",
-            4: "'Playfair Display', serif"
-        };
-
-        const sizes = {
-            1: { auto: 0.22, min: 24, max: 140 },
-            2: { auto: 0.25, min: 28, max: 160 },
-            3: { auto: 0.28, min: 32, max: 180 },
-            4: { auto: 0.32, min: 36, max: 200 }
-        };
-
-        const shadows = {
-            1: { blur: 3, offsetX: 1, offsetY: 1, opacity: 0.3 },
-            2: { blur: 5, offsetX: 2, offsetY: 2, opacity: 0.5 },
-            3: { blur: 8, offsetX: 3, offsetY: 3, opacity: 0.7 },
-            4: { blur: 12, offsetX: 4, offsetY: 4, opacity: 0.9 }
-        };
-
-        function clamp(v, min, max) {
-            return Math.min(Math.max(v, min), max);
+        
+        function splitIntoWords(text) {
+            // Memisahkan teks menjadi kata-kata dan spasi-spasi. Spasi yang berlebih akan dipertahankan.
+            return text.split(/(\\s+)/).filter(word => word.length > 0); 
         }
-
-        function wrap(ctx, text, width) {
-            const words = text.split(' ');
+        
+        function wrapText(ctx, text, maxWidth, fontSize) {
+            const words = splitIntoWords(text);
             const lines = [];
-            let line = '';
-            for (const word of words) {
-                const test = line ? \`\${line} \${word}\` : word;
-                const met = ctx.measureText(test);
-                if (met.width > width && line) {
-                    lines.push(line);
-                    line = word;
+            let currentLine = '';
+            
+            for (let i = 0; i < words.length; i++) {
+                const word = words[i];
+                const testLine = currentLine ? currentLine + word : word; 
+                ctx.font = \`\${setting.font.weight} \${fontSize}px \${setting.font.family}\`;
+                const metrics = ctx.measureText(testLine);
+                
+                if (metrics.width > maxWidth && currentLine.trim() !== '') {
+                    lines.push(currentLine);
+                    currentLine = word;
                 } else {
-                    line = test;
+                    currentLine = testLine;
                 }
             }
-            if (line) lines.push(line);
+            
+            if (currentLine) lines.push(currentLine);
             return lines;
         }
-
-        async function draw() {
-            const canvas = document.getElementById('canvas');
-            const ctx = canvas.getContext('2d');
+        
+        function calculateOptimalFontSize(ctx, text, maxWidth, maxHeight) {
+            let low = setting.textSettings.minFontSize;
+            let high = setting.textSettings.maxFontSize;
+            let optimalSize = low;
             
-            const img = new Image();
-            img.crossOrigin = "anonymous";
-            await new Promise((r, e) => {
-                img.onload = r;
-                img.onerror = e;
-                img.src = config.photo;
+            while (low <= high) {
+                const mid = Math.floor((low + high) / 2);
+                const lines = wrapText(ctx, text, maxWidth, mid);
+                const lineHeightPx = mid * setting.textSettings.lineHeight;
+                const totalHeight = lines.length * lineHeightPx;
+                
+                if (totalHeight <= maxHeight && mid <= high) {
+                    optimalSize = mid;
+                    low = mid + 1;
+                } else {
+                    high = mid - 1;
+                }
+            }
+            
+            return optimalSize;
+        }
+        
+        async function createBahlilImage() {
+            const canvas = document.getElementById('bahlilCanvas');
+            const ctx = canvas.getContext('2d');
+            const bgImage = new Image();
+            bgImage.crossOrigin = "anonymous";
+            
+            await new Promise((resolve, reject) => {
+                bgImage.onload = resolve;
+                bgImage.onerror = reject;
+                bgImage.src = setting.photo;
             });
             
-            canvas.width = img.width;
-            canvas.height = img.height;
-            // Gambar foto
-            ctx.drawImage(img, 0, 0);
+            canvas.width = bgImage.width;
+            canvas.height = bgImage.height;
+            ctx.drawImage(bgImage, 0, 0, bgImage.width, bgImage.height);
             
-            const maxChars = clamp(parseInt(config.textSettings.maxChars) || 100, 10, 200);
-            let text = (config.text || '').trim().replace(/\\s+/g, ' ');
-            if (!text) text = '...';
-            if (text.length > maxChars) {
-                text = \`\${text.slice(0, maxChars - 3).trim()}...\`;
-            }
+            let safeText = (setting.text || '').trim(); 
+            if (!safeText) safeText = '...';
             
-            // FIX: Atur 'paper' agar mencakup seluruh area gambar/kanvas
-            const paper = { 
-                x: 0, 
-                y: 0, 
-                width: img.width, 
-                height: img.height 
-            };
-            // const paper = config.paper; // Baris ini diganti
+            const textArea = setting.textArea;
+            const textAreaX = bgImage.width * textArea.left;
+            const textAreaY = bgImage.height * textArea.top;
+            const textAreaWidth = bgImage.width * textArea.width;
+            const textAreaHeight = bgImage.height * textArea.height;
+            const padding = Math.round(textAreaWidth * setting.textSettings.paddingPercent);
+            const textContentWidth = textAreaWidth - (padding * 2);
+            const textContentHeight = textAreaHeight - (padding * 2);
             
-            const pad = Math.round(paper.width * 0.07);
-            const maxW = paper.width - pad * 2;
-            const maxH = paper.height - pad * 2;
-            
-            const fontName = fonts[config.font.type] || fonts[3];
-            const sizeConf = sizes[config.font.size] || sizes[3];
-            const shadowConf = shadows[config.shadow.level] || shadows[2];
-            
-            let fontSize = Math.round(Math.min(paper.height * sizeConf.auto, sizeConf.max));
-            const minSize = sizeConf.min;
-            let lines = [];
-            
-            while (fontSize >= minSize) {
-                ctx.font = \`\${config.font.weight} \${fontSize}px \${fontName}\`;
-                lines = wrap(ctx, text, maxW);
-                const lineH = Math.round(fontSize * config.textSettings.lineHeight);
-                const totalH = lines.length * lineH;
-                const longest = lines.reduce((m, l) => Math.max(m, ctx.measureText(l).width), 0);
-                if (totalH <= maxH && longest <= maxW) break;
-                fontSize -= 6;
-            }
+            const optimalFontSize = calculateOptimalFontSize(ctx, safeText, textContentWidth, textContentHeight);
+            const lines = wrapText(ctx, safeText, textContentWidth, optimalFontSize);
+            const lineHeightPx = optimalFontSize * setting.textSettings.lineHeight;
+            const totalTextHeight = lines.length * lineHeightPx;
             
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.shadowColor = \`rgba(0,0,0,\${shadowConf.opacity})\`;
-            ctx.shadowBlur = shadowConf.blur;
-            ctx.shadowOffsetX = shadowConf.offsetX;
-            ctx.shadowOffsetY = shadowConf.offsetY;
+            ctx.globalCompositeOperation = setting.blendMode;
+            ctx.fillStyle = setting.font.color;
+            ctx.font = \`\${setting.font.weight} \${optimalFontSize}px \${setting.font.family}\`;
             
-            const lineH = Math.round(fontSize * config.textSettings.lineHeight);
-            const totalH = lines.length * lineH;
-            // startX dan startY akan berada di tengah kanvas karena paper.x/y adalah 0 dan paper.width/height adalah img.width/height
-            const startX = paper.x + paper.width / 2;
-            let startY = paper.y + (paper.height - totalH) / 2 + lineH / 2;
+            let startX = textAreaX + textAreaWidth / 2;
+            let startY = textAreaY + padding + (lineHeightPx / 2);
             
-            // Gambar teks di atas foto
-            ctx.fillStyle = config.font.color;
-            for (const line of lines) {
-                ctx.fillText(line, startX, startY);
-                startY += lineH;
+            if (totalTextHeight < textContentHeight) {
+                startY = textAreaY + (textAreaHeight - totalTextHeight) / 2 + (lineHeightPx / 2);
             }
             
-            ctx.shadowColor = 'transparent';
-            ctx.shadowBlur = 0;
-            ctx.shadowOffsetX = 0;
-            ctx.shadowOffsetY = 0;
+            for (const line of lines) {
+                ctx.fillText(line, startX, startY);
+                startY += lineHeightPx;
+            }
             
+            ctx.globalCompositeOperation = 'source-over';
         }
-
-        window.onload = draw;
+        
+        window.onload = createBahlilImage;
     </script>
-    
-    <style>
-        body { margin:0; padding:0; background:#111; display:flex; justify-content:center; align-items:center; min-height:100vh; }
-        canvas { display:block; max-width:95vw; max-height:95vh; }
-    </style>
 </body>
 </html>
-`;
+    `;
     return htmlTemplate;
   }
   async down(url) {
@@ -219,8 +213,8 @@ class BahlilGen {
       });
       const payload = {
         html: htmlContent,
-        width: rest?.width || 1944,
-        height: rest?.height || 1619
+        width: rest?.width || 896,
+        height: rest?.height || 1152
       };
       console.log("[LOG] Mengirim permintaan ke API generator...");
       const apiRes = await this.client.post(`/api/tools/html2img/${type}`, payload);
