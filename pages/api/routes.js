@@ -974,6 +974,7 @@ export default function handler(req, res) {
     { path: "/api/anime/otakudesu/v2", name: "V2", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/anime/nekopoi/v2", name: "V2", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/anime/nekopoi/v1", name: "V1", params: [{ "name": "prompt", "in": "query", "required": false }], },
+    { path: "/api/anime/doronime", name: "Doronime", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/apps/apk4all", name: "Apk4all", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/apps/apk4free", name: "Apk4free", params: [{ "name": "prompt", "in": "query", "required": false }], },
     { path: "/api/apps/apkbolt", name: "Apkbolt", params: [{ "name": "prompt", "in": "query", "required": false }], },

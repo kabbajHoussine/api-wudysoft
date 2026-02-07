@@ -52,7 +52,7 @@ class InstaDownloader {
     for (const base of targets) {
       try {
         const domain = new URL(base).hostname.replace("www.", "");
-        const config = host_cfg[domain] || host_cfg["fastdl.app"];
+        const config = this.host_cfg[domain] || this.host_cfg["fastdl.app"];
         console.log(`🚀 Trying [${domain}] for URL: ${url}`);
         const code = `
 const pw = require('playwright');
@@ -108,16 +108,12 @@ const pw = require('playwright');
         });
         const raw = res?.data?.output ? JSON.parse(res.data.output) : {};
         if (Object.keys(raw).length === 0) continue;
-        const parsed = {
-          source: domain,
-          data: {}
-        };
-        for (const [path, data] of Object.entries(raw)) {
-          parsed.data[this.toKey(path)] = data;
-        }
         return {
           success: true,
-          ...parsed
+          source: domain,
+          result: Object.values(raw).map(item => ({
+            ...item
+          }))
         };
       } catch (err) {
         console.log(`❌ Host ${base} failed:`, err.message);
