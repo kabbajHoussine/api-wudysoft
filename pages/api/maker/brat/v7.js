@@ -24,14 +24,16 @@ class HtmlToImg {
     text = "Jane Doe",
     output = "png",
     model: template = 1,
-    type = "v5"
+    type = "v5",
+    ...rest
   }) {
     const data = {
       ext: output,
       html: Html({
         text: text,
         output: output,
-        template: template
+        template: template,
+        ...rest
       })
     };
     try {
