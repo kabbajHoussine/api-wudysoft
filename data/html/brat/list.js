@@ -238,6 +238,268 @@ const templates = [{
 </html>`
 }, {
   html: ({
+    font = 0,
+    color = 0,
+    bg = 0,
+    text = "Hai Bang, Apa Kabar?"
+  }) => `<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canvas 800x800 · emoji apple + font & color arrays</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: #111;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        canvas {
+            display: block;
+            width: 800px;
+            height: 800px;
+            max-width: 100vw;
+            max-height: 100vh;
+            aspect-ratio: 1 / 1;
+            background: white;
+            box-shadow: 0 0 30px rgba(0,0,0,0.7);
+        }
+    </style>
+</head>
+<body>
+    <canvas id="mainCanvas" width="800" height="800"></canvas>
+
+    <script>
+        (function() {
+            // ========== KONSTANTA ARRAY (font, color, bg) ==========
+            const fontOptions = [
+                'Arial, "Helvetica Neue", sans-serif',
+                'Helvetica, Arial, sans-serif',
+                '"Times New Roman", Times, serif',
+                '"Courier New", Courier, monospace',
+                'Georgia, serif'
+            ];
+            const colorOptions = ['black', 'red', 'blue', 'green', 'purple'];
+            const bgOptions = ['white', 'lightgray', 'yellow', 'cyan', 'pink'];
+
+            // Pilih indeks yang diinginkan (0 = default hitam putih)
+            const fontIndex = parseInt("${font}");
+            const colorIndex = parseInt("${color}");
+            const bgIndex = parseInt("${bg}");
+
+            const font = fontOptions[fontIndex];
+            const textColor = colorOptions[colorIndex];
+            const bgColor = bgOptions[bgIndex];
+            // ========================================================
+
+            // ==================== FUNGSI DARI PERINTAH ====================
+            function ecp(c) { 
+                return c.codePointAt(0).toString(16); 
+            }
+
+            function lei(cp) {
+                return new Promise((res) => {
+                    const img = new Image();
+                    img.crossOrigin = "anonymous";
+                    img.onload  = () => res(img);
+                    img.onerror = () => res(null);
+                    img.src = "https://cdn.jsdelivr.net/npm/emoji-datasource-apple@15.0.1/img/apple/64/" + cp + ".png";
+                });
+            }
+
+            // gcw akan didefinisikan setelah ctx dikenal
+            let gcw = null;
+
+            function wrap(str, maxW, fs) {
+                ctx.font = fs + "px " + font;
+                const words = str.split(" ");
+                const lines = [];
+                let cur = [], curW = 0;
+                words.forEach(w => {
+                    let ww = 0;
+                    Array.from(w).forEach(c => ww += gcw(c, fs));
+                    const sw = ctx.measureText(" ").width;
+                    const tw = curW + (cur.length > 0 ? sw : 0) + ww;
+                    if (tw > maxW && cur.length > 0) {
+                        lines.push(cur);
+                        cur = [w];
+                        curW = ww;
+                    } else {
+                        if (cur.length > 0) curW += sw;
+                        cur.push(w);
+                        curW += ww;
+                    }
+                });
+                if (cur.length > 0) lines.push(cur);
+                return lines;   // array of array of words
+            }
+
+            function glw(line, fs) {
+                let tw = 0;
+                const sw = ctx.measureText(" ").width;
+                line.forEach((w, i) => {
+                    if (i > 0) tw += sw;
+                    Array.from(w).forEach(c => tw += gcw(c, fs));
+                });
+                return tw;
+            }
+            // ================================================================
+
+            const canvas = document.getElementById('mainCanvas');
+            const ctx = canvas.getContext('2d');
+            const W = 800, H = 800;
+
+            // inisialisasi gcw dengan ctx dan font (font sudah dipilih)
+            gcw = function(c, fs) {
+                if (c.match(/[\u{1F000}-\u{1FFFF}]/gu)) return fs;
+                ctx.font = fs + "px " + font;
+                return ctx.measureText(c).width;
+            };
+
+            // ==================== TEKS TETAP ====================
+            const teks = "${text}";
+
+            // pengaturan padding
+            const PADDING = 40;
+            const maxWidth = W - 2 * PADDING;   // 720
+            const maxHeight = H - 2 * PADDING;   // 720
+            const LINE_HEIGHT_RATIO = 1.2;
+
+            // cache gambar emoji
+            const imageCache = new Map();
+
+            // ----- muat semua emoji yang diperlukan -----
+            async function loadEmojis(text) {
+                const promises = [];
+                for (const char of text) {
+                    if (char.match(/[\u{1F000}-\u{1FFFF}]/u)) {
+                        const cp = ecp(char);
+                        if (!imageCache.has(cp)) {
+                            const promise = lei(cp).then(img => {
+                                imageCache.set(cp, img);
+                            });
+                            promises.push(promise);
+                        }
+                    }
+                }
+                await Promise.all(promises);
+            }
+
+            // ----- binary search ukuran font maksimum -----
+            function findMaxFontSize(minFs, maxFs) {
+                let low = minFs, high = maxFs;
+                let best = minFs;
+
+                while (low <= high) {
+                    const mid = Math.floor((low + high) / 2);
+                    const lines = wrap(teks, maxWidth, mid);
+                    const totalHeight = lines.length * mid * LINE_HEIGHT_RATIO;
+                    if (totalHeight <= maxHeight) {
+                        best = mid;
+                        low = mid + 1;
+                    } else {
+                        high = mid - 1;
+                    }
+                }
+                return best;
+            }
+
+            // ----- gambar teks dengan justify (rata kiri-kanan) -----
+            function drawJustified(lines, fs) {
+                const lineHeight = fs * LINE_HEIGHT_RATIO;
+                const totalHeight = lines.length * lineHeight;
+                let startY = (H - totalHeight) / 2 + fs * 0.85; // tengah vertikal
+
+                for (let l = 0; l < lines.length; l++) {
+                    const lineWords = lines[l];   // array of words (string)
+
+                    // hitung lebar total kata (tanpa spasi)
+                    let totalWordsWidth = 0;
+                    for (let w of lineWords) {
+                        let ww = 0;
+                        Array.from(w).forEach(c => ww += gcw(c, fs));
+                        totalWordsWidth += ww;
+                    }
+
+                    // jumlah spasi antar kata
+                    const spaceCount = lineWords.length - 1;
+                    const extraSpace = (maxWidth - totalWordsWidth) / (spaceCount || 1);
+
+                    // gambar baris
+                    let x = PADDING;
+                    for (let i = 0; i < lineWords.length; i++) {
+                        const word = lineWords[i];
+
+                        // gambar setiap karakter dalam kata
+                        for (let c of word) {
+                            if (c.match(/[\u{1F000}-\u{1FFFF}]/u)) {
+                                const cp = ecp(c);
+                                const img = imageCache.get(cp);
+                                if (img && img instanceof HTMLImageElement && img.complete && img.naturalWidth > 0) {
+                                    ctx.drawImage(img, x, startY - fs * 0.85, fs, fs);
+                                } else {
+                                    // fallback teks
+                                    ctx.font = fs + 'px ' + font + ', "Apple Color Emoji", "Segoe UI Emoji"';
+                                    ctx.fillText(c, x, startY);
+                                }
+                                x += fs;
+                            } else {
+                                ctx.font = fs + 'px ' + font;
+                                ctx.fillText(c, x, startY);
+                                x += ctx.measureText(c).width;
+                            }
+                        }
+
+                        // tambahkan spasi ekstra setelah kata (kecuali kata terakhir)
+                        if (i < lineWords.length - 1) {
+                            x += extraSpace;
+                        }
+                    }
+                    startY += lineHeight;
+                }
+            }
+
+            // ----- fungsi utama render -----
+            async function render() {
+                await loadEmojis(teks);
+
+                // bersihkan canvas dengan warna latar dari bgColor
+                ctx.clearRect(0, 0, W, H);
+                ctx.fillStyle = bgColor;
+                ctx.fillRect(0, 0, W, H);
+
+                // aktifkan filter blur (hitam putih tetap diterapkan pada gambar dan teks)
+                ctx.filter = 'blur(2px)';
+                ctx.fillStyle = textColor;   // warna teks sesuai pilihan
+                ctx.shadowColor = 'transparent';
+
+                // cari ukuran font optimal
+                const optimalFs = findMaxFontSize(10, 200);
+                if (optimalFs < 10) {
+                    ctx.font = '20px ' + font;
+                    ctx.fillText('teks terlalu panjang', PADDING, H/2);
+                    return;
+                }
+
+                // dapatkan lines dengan ukuran font optimal
+                const lines = wrap(teks, maxWidth, optimalFs);
+                drawJustified(lines, optimalFs);
+            }
+
+            render().catch(console.error);
+        })();
+    </script>
+</body>
+</html>`
+}, {
+  html: ({
     text = "Hai Bang, Apa Kabar?",
     output = "png"
   }) => `<!DOCTYPE html>
