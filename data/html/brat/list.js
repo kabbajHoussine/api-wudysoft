@@ -1,9 +1,242 @@
 const templates = [{
   html: ({
-    style = "default",
-    font = "a",
     text = "Hai Bang, Apa Kabar?",
-    output = "png"
+    output = "png",
+    fontIndex = "0",
+    colorIndex = "0",
+    bgIndex = "0"
+  }) => `<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canvas 800x800 · emoji apple + font & color arrays</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #111;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        canvas {
+            display: block;
+            width: 800px;
+            height: 800px;
+            max-width: 100vw;
+            max-height: 100vh;
+            aspect-ratio: 1 / 1;
+            background: white;
+            box-shadow: 0 0 30px rgba(0,0,0,0.7);
+        }
+    </style>
+</head>
+<body>
+    <canvas id="mainCanvas" width="800" height="800"></canvas>
+
+    <script>
+        (function() {
+            const fontOptions = [
+                'Arial, "Helvetica Neue", sans-serif',
+                'Helvetica, Arial, sans-serif',
+                '"Times New Roman", Times, serif',
+                '"Courier New", Courier, monospace',
+                'Georgia, serif'
+            ];
+            const colorOptions = ['black', 'red', 'blue', 'green', 'purple'];
+            const bgOptions = ['white', 'lightgray', 'yellow', 'cyan', 'pink'];
+
+            const fontIndex = parseInt("${fontIndex}");
+            const colorIndex = parseInt("${colorIndex}");
+            const bgIndex = parseInt("${bgIndex}");
+
+            const font = fontOptions[fontIndex] || fontOptions[0];
+            const textColor = colorOptions[colorIndex] || colorOptions[0];
+            const bgColor = bgOptions[bgIndex] || bgOptions[0];
+
+            function ecp(c) { return c.codePointAt(0).toString(16); }
+
+            function lei(cp) {
+                return new Promise((res) => {
+                    const img = new Image();
+                    img.crossOrigin = "anonymous";
+                    img.onload  = () => res(img);
+                    img.onerror = () => res(null);
+                    img.src = "https://cdn.jsdelivr.net/npm/emoji-datasource-apple@15.0.1/img/apple/64/" + cp + ".png";
+                });
+            }
+
+            let gcw = null;
+
+            function wrap(str, maxW, fs) {
+                ctx.font = fs + "px " + font;
+                const words = str.split(" ");
+                const lines = [];
+                let cur = [], curW = 0;
+                words.forEach(w => {
+                    let ww = 0;
+                    Array.from(w).forEach(c => ww += gcw(c, fs));
+                    const sw = ctx.measureText(" ").width;
+                    const tw = curW + (cur.length > 0 ? sw : 0) + ww;
+                    if (tw > maxW && cur.length > 0) {
+                        lines.push(cur);
+                        cur = [w];
+                        curW = ww;
+                    } else {
+                        if (cur.length > 0) curW += sw;
+                        cur.push(w);
+                        curW += ww;
+                    }
+                });
+                if (cur.length > 0) lines.push(cur);
+                return lines;
+            }
+
+            function glw(line, fs) {
+                let tw = 0;
+                const sw = ctx.measureText(" ").width;
+                line.forEach((w, i) => {
+                    if (i > 0) tw += sw;
+                    Array.from(w).forEach(c => tw += gcw(c, fs));
+                });
+                return tw;
+            }
+
+            const canvas = document.getElementById('mainCanvas');
+            const ctx = canvas.getContext('2d');
+            const W = 800, H = 800;
+
+            gcw = function(c, fs) {
+                if (c.match(/[\u{1F000}-\u{1FFFF}]/gu)) return fs;
+                ctx.font = fs + "px " + font;
+                return ctx.measureText(c).width;
+            };
+
+            const teks = "${text.replace(/"/g, '\\"').replace(/\\/g, "\\\\")}";
+
+            const PADDING = 40;
+            const maxWidth = W - 2 * PADDING;
+            const maxHeight = H - 2 * PADDING;
+            const LINE_HEIGHT_RATIO = 1.2;
+
+            const imageCache = new Map();
+
+            async function loadEmojis(text) {
+                const promises = [];
+                for (const char of text) {
+                    if (char.match(/[\u{1F000}-\u{1FFFF}]/u)) {
+                        const cp = ecp(char);
+                        if (!imageCache.has(cp)) {
+                            const promise = lei(cp).then(img => {
+                                imageCache.set(cp, img);
+                            });
+                            promises.push(promise);
+                        }
+                    }
+                }
+                await Promise.all(promises);
+            }
+
+            function findMaxFontSize(minFs, maxFs) {
+                let low = minFs, high = maxFs;
+                let best = minFs;
+                while (low <= high) {
+                    const mid = Math.floor((low + high) / 2);
+                    const lines = wrap(teks, maxWidth, mid);
+                    const totalHeight = lines.length * mid * LINE_HEIGHT_RATIO;
+                    if (totalHeight <= maxHeight) {
+                        best = mid;
+                        low = mid + 1;
+                    } else {
+                        high = mid - 1;
+                    }
+                }
+                return best;
+            }
+
+            function drawJustified(lines, fs) {
+                const lineHeight = fs * LINE_HEIGHT_RATIO;
+                const totalHeight = lines.length * lineHeight;
+                let startY = (H - totalHeight) / 2 + fs * 0.85;
+
+                for (let l = 0; l < lines.length; l++) {
+                    const lineWords = lines[l];
+
+                    let totalWordsWidth = 0;
+                    for (let w of lineWords) {
+                        let ww = 0;
+                        Array.from(w).forEach(c => ww += gcw(c, fs));
+                        totalWordsWidth += ww;
+                    }
+
+                    const spaceCount = lineWords.length - 1;
+                    const extraSpace = (maxWidth - totalWordsWidth) / (spaceCount || 1);
+
+                    let x = PADDING;
+                    for (let i = 0; i < lineWords.length; i++) {
+                        const word = lineWords[i];
+
+                        for (let c of word) {
+                            if (c.match(/[\u{1F000}-\u{1FFFF}]/u)) {
+                                const cp = ecp(c);
+                                const img = imageCache.get(cp);
+                                if (img && img instanceof HTMLImageElement && img.complete && img.naturalWidth > 0) {
+                                    ctx.drawImage(img, x, startY - fs * 0.85, fs, fs);
+                                } else {
+                                    ctx.font = fs + 'px ' + font + ', "Apple Color Emoji", "Segoe UI Emoji"';
+                                    ctx.fillText(c, x, startY);
+                                }
+                                x += fs;
+                            } else {
+                                ctx.font = fs + 'px ' + font;
+                                ctx.fillText(c, x, startY);
+                                x += ctx.measureText(c).width;
+                            }
+                        }
+
+                        if (i < lineWords.length - 1) {
+                            x += extraSpace;
+                        }
+                    }
+                    startY += lineHeight;
+                }
+            }
+
+            async function render() {
+                await loadEmojis(teks);
+
+                ctx.clearRect(0, 0, W, H);
+                ctx.fillStyle = bgColor;
+                ctx.fillRect(0, 0, W, H);
+
+                ctx.filter = 'blur(2px)';
+                ctx.fillStyle = textColor;
+                ctx.shadowColor = 'transparent';
+
+                const optimalFs = findMaxFontSize(10, 200);
+                if (optimalFs < 10) {
+                    ctx.font = '20px ' + font;
+                    ctx.fillText('teks terlalu panjang', PADDING, H/2);
+                    return;
+                }
+
+                const lines = wrap(teks, maxWidth, optimalFs);
+                drawJustified(lines, optimalFs);
+            }
+
+            render().catch(console.error);
+        })();
+    </script>
+</body>
+</html>`
+}, {
+  html: ({
+    text = "Hai Bang, Apa Kabar?",
+    output = "png",
+    font: fi = "a",
+    tema = "default",
+    delay = 1e3
   }) => `<!DOCTYPE html>
 <html lang="id">
 <head>
@@ -21,7 +254,7 @@ const templates = [{
     <script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
     <script>
         const fm = {
-            a: "-apple-system, BlinkMacSystemFont, \"Segoe UI\", Helvetica, Arial, sans-serif",
+            a: "-apple-system, BlinkMacSystemFont, \\"Segoe UI\\", Helvetica, Arial, sans-serif",
             b: "Roboto, sans-serif",
             c: "Montserrat, sans-serif",
             d: "Lato, sans-serif",
@@ -45,32 +278,32 @@ const templates = [{
         };
 
         const tm = {
-            default:    { bg: "#ffffff", color: "#000000", shadow: null },
-            cyberpunk:  { bg: "#0d0d0d", color: "#ffe600", shadow: { color: "#ff007c", blur: 18, ox: 3, oy: 3 } },
-            neon:       { bg: "#000000", color: "#ffffff", shadow: { color: "#00ffff", blur: 24, ox: 0, oy: 0 } },
-            nebula:     { bg: "#0a0015", color: "#e8d5ff", shadow: { color: "#9b59ff", blur: 30, ox: 0, oy: 0 } },
-            nexus:      { bg: "#020c1b", color: "#00ff9f", shadow: { color: "#00bfff", blur: 20, ox: 2, oy: 2 } },
-            retro:      { bg: "#1a0a00", color: "#ff6a00", shadow: { color: "#ffcc00", blur: 14, ox: 2, oy: 2 } },
-            matrix:     { bg: "#000000", color: "#00ff41", shadow: { color: "#00ff41", blur: 10, ox: 0, oy: 0 } },
-            sunset:     { bg: "#1a0030", color: "#ff6ec7", shadow: { color: "#ffae42", blur: 20, ox: 0, oy: 0 } },
-            ice:        { bg: "#e8f4fc", color: "#0077b6", shadow: { color: "#90e0ef", blur: 12, ox: 0, oy: 0 } },
-            gold:       { bg: "#0d0900", color: "#ffd700", shadow: { color: "#b8860b", blur: 16, ox: 2, oy: 2 } },
-            aurora:     { bg: "#020f14", color: "#a8ffdb", shadow: { color: "#00f5a0", blur: 28, ox: 0, oy: 0 } },
-            lava:       { bg: "#0d0000", color: "#ff4500", shadow: { color: "#ff8c00", blur: 22, ox: 0, oy: 0 } },
+            default:   { bg: "#ffffff", color: "#000000", shadow: null },
+            cyberpunk: { bg: "#0d0d0d", color: "#ffe600", shadow: { color: "#ff007c", blur: 18, ox: 3, oy: 3 } },
+            neon:      { bg: "#000000", color: "#ffffff", shadow: { color: "#00ffff", blur: 24, ox: 0, oy: 0 } },
+            nebula:    { bg: "#0a0015", color: "#e8d5ff", shadow: { color: "#9b59ff", blur: 30, ox: 0, oy: 0 } },
+            nexus:     { bg: "#020c1b", color: "#00ff9f", shadow: { color: "#00bfff", blur: 20, ox: 2, oy: 2 } },
+            retro:     { bg: "#1a0a00", color: "#ff6a00", shadow: { color: "#ffcc00", blur: 14, ox: 2, oy: 2 } },
+            matrix:    { bg: "#000000", color: "#00ff41", shadow: { color: "#00ff41", blur: 10, ox: 0, oy: 0 } },
+            sunset:    { bg: "#1a0030", color: "#ff6ec7", shadow: { color: "#ffae42", blur: 20, ox: 0, oy: 0 } },
+            ice:       { bg: "#e8f4fc", color: "#0077b6", shadow: { color: "#90e0ef", blur: 12, ox: 0, oy: 0 } },
+            gold:      { bg: "#0d0900", color: "#ffd700", shadow: { color: "#b8860b", blur: 16, ox: 2, oy: 2 } },
+            aurora:    { bg: "#020f14", color: "#a8ffdb", shadow: { color: "#00f5a0", blur: 28, ox: 0, oy: 0 } },
+            lava:      { bg: "#0d0000", color: "#ff4500", shadow: { color: "#ff8c00", blur: 22, ox: 0, oy: 0 } },
         };
 
-        const tema  = "${style}";
+        const tema  = "${tema}";
         const th    = tm[tema] || tm.default;
 
-        const fi    = "${font}";
-        const font  = fm[fi];
+        const fi    = "${fi}";
+        const font  = fm[fi] || fm.a;
         const color = th.color;
         const bg    = th.bg;
-        const delay = 1000;
+        const delay = ${Number(delay) || 1e3};
 
         const cvs  = document.getElementById("myCanvas");
         const ctx  = cvs.getContext("2d");
-        const text = "${text}";
+        const text = "${text.replace(/"/g, '\\"').replace(/\\/g, "\\\\")}";
         const out  = "${output}";
 
         ctx.fillStyle = bg;
@@ -118,7 +351,7 @@ const templates = [{
             return tw;
         }
 
-        function setShadow(fs) {
+        function setShadow() {
             if (th.shadow) {
                 ctx.shadowColor   = th.shadow.color;
                 ctx.shadowBlur    = th.shadow.blur;
@@ -233,763 +466,6 @@ const templates = [{
         }
 
         document.fonts.ready.then(() => init());
-    </script>
-</body>
-</html>`
-}, {
-  html: ({
-    font = 0,
-    color = 0,
-    bg = 0,
-    text = "Hai Bang, Apa Kabar?"
-  }) => `<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Canvas 800x800 · emoji apple + font & color arrays</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            background: #111;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        canvas {
-            display: block;
-            width: 800px;
-            height: 800px;
-            max-width: 100vw;
-            max-height: 100vh;
-            aspect-ratio: 1 / 1;
-            background: white;
-            box-shadow: 0 0 30px rgba(0,0,0,0.7);
-        }
-    </style>
-</head>
-<body>
-    <canvas id="mainCanvas" width="800" height="800"></canvas>
-
-    <script>
-        (function() {
-            // ========== KONSTANTA ARRAY (font, color, bg) ==========
-            const fontOptions = [
-                'Arial, "Helvetica Neue", sans-serif',
-                'Helvetica, Arial, sans-serif',
-                '"Times New Roman", Times, serif',
-                '"Courier New", Courier, monospace',
-                'Georgia, serif'
-            ];
-            const colorOptions = ['black', 'red', 'blue', 'green', 'purple'];
-            const bgOptions = ['white', 'lightgray', 'yellow', 'cyan', 'pink'];
-
-            // Pilih indeks yang diinginkan (0 = default hitam putih)
-            const fontIndex = parseInt("${font}");
-            const colorIndex = parseInt("${color}");
-            const bgIndex = parseInt("${bg}");
-
-            const font = fontOptions[fontIndex];
-            const textColor = colorOptions[colorIndex];
-            const bgColor = bgOptions[bgIndex];
-            // ========================================================
-
-            // ==================== FUNGSI DARI PERINTAH ====================
-            function ecp(c) { 
-                return c.codePointAt(0).toString(16); 
-            }
-
-            function lei(cp) {
-                return new Promise((res) => {
-                    const img = new Image();
-                    img.crossOrigin = "anonymous";
-                    img.onload  = () => res(img);
-                    img.onerror = () => res(null);
-                    img.src = "https://cdn.jsdelivr.net/npm/emoji-datasource-apple@15.0.1/img/apple/64/" + cp + ".png";
-                });
-            }
-
-            // gcw akan didefinisikan setelah ctx dikenal
-            let gcw = null;
-
-            function wrap(str, maxW, fs) {
-                ctx.font = fs + "px " + font;
-                const words = str.split(" ");
-                const lines = [];
-                let cur = [], curW = 0;
-                words.forEach(w => {
-                    let ww = 0;
-                    Array.from(w).forEach(c => ww += gcw(c, fs));
-                    const sw = ctx.measureText(" ").width;
-                    const tw = curW + (cur.length > 0 ? sw : 0) + ww;
-                    if (tw > maxW && cur.length > 0) {
-                        lines.push(cur);
-                        cur = [w];
-                        curW = ww;
-                    } else {
-                        if (cur.length > 0) curW += sw;
-                        cur.push(w);
-                        curW += ww;
-                    }
-                });
-                if (cur.length > 0) lines.push(cur);
-                return lines;   // array of array of words
-            }
-
-            function glw(line, fs) {
-                let tw = 0;
-                const sw = ctx.measureText(" ").width;
-                line.forEach((w, i) => {
-                    if (i > 0) tw += sw;
-                    Array.from(w).forEach(c => tw += gcw(c, fs));
-                });
-                return tw;
-            }
-            // ================================================================
-
-            const canvas = document.getElementById('mainCanvas');
-            const ctx = canvas.getContext('2d');
-            const W = 800, H = 800;
-
-            // inisialisasi gcw dengan ctx dan font (font sudah dipilih)
-            gcw = function(c, fs) {
-                if (c.match(/[\u{1F000}-\u{1FFFF}]/gu)) return fs;
-                ctx.font = fs + "px " + font;
-                return ctx.measureText(c).width;
-            };
-
-            // ==================== TEKS TETAP ====================
-            const teks = "${text}";
-
-            // pengaturan padding
-            const PADDING = 40;
-            const maxWidth = W - 2 * PADDING;   // 720
-            const maxHeight = H - 2 * PADDING;   // 720
-            const LINE_HEIGHT_RATIO = 1.2;
-
-            // cache gambar emoji
-            const imageCache = new Map();
-
-            // ----- muat semua emoji yang diperlukan -----
-            async function loadEmojis(text) {
-                const promises = [];
-                for (const char of text) {
-                    if (char.match(/[\u{1F000}-\u{1FFFF}]/u)) {
-                        const cp = ecp(char);
-                        if (!imageCache.has(cp)) {
-                            const promise = lei(cp).then(img => {
-                                imageCache.set(cp, img);
-                            });
-                            promises.push(promise);
-                        }
-                    }
-                }
-                await Promise.all(promises);
-            }
-
-            // ----- binary search ukuran font maksimum -----
-            function findMaxFontSize(minFs, maxFs) {
-                let low = minFs, high = maxFs;
-                let best = minFs;
-
-                while (low <= high) {
-                    const mid = Math.floor((low + high) / 2);
-                    const lines = wrap(teks, maxWidth, mid);
-                    const totalHeight = lines.length * mid * LINE_HEIGHT_RATIO;
-                    if (totalHeight <= maxHeight) {
-                        best = mid;
-                        low = mid + 1;
-                    } else {
-                        high = mid - 1;
-                    }
-                }
-                return best;
-            }
-
-            // ----- gambar teks dengan justify (rata kiri-kanan) -----
-            function drawJustified(lines, fs) {
-                const lineHeight = fs * LINE_HEIGHT_RATIO;
-                const totalHeight = lines.length * lineHeight;
-                let startY = (H - totalHeight) / 2 + fs * 0.85; // tengah vertikal
-
-                for (let l = 0; l < lines.length; l++) {
-                    const lineWords = lines[l];   // array of words (string)
-
-                    // hitung lebar total kata (tanpa spasi)
-                    let totalWordsWidth = 0;
-                    for (let w of lineWords) {
-                        let ww = 0;
-                        Array.from(w).forEach(c => ww += gcw(c, fs));
-                        totalWordsWidth += ww;
-                    }
-
-                    // jumlah spasi antar kata
-                    const spaceCount = lineWords.length - 1;
-                    const extraSpace = (maxWidth - totalWordsWidth) / (spaceCount || 1);
-
-                    // gambar baris
-                    let x = PADDING;
-                    for (let i = 0; i < lineWords.length; i++) {
-                        const word = lineWords[i];
-
-                        // gambar setiap karakter dalam kata
-                        for (let c of word) {
-                            if (c.match(/[\u{1F000}-\u{1FFFF}]/u)) {
-                                const cp = ecp(c);
-                                const img = imageCache.get(cp);
-                                if (img && img instanceof HTMLImageElement && img.complete && img.naturalWidth > 0) {
-                                    ctx.drawImage(img, x, startY - fs * 0.85, fs, fs);
-                                } else {
-                                    // fallback teks
-                                    ctx.font = fs + 'px ' + font + ', "Apple Color Emoji", "Segoe UI Emoji"';
-                                    ctx.fillText(c, x, startY);
-                                }
-                                x += fs;
-                            } else {
-                                ctx.font = fs + 'px ' + font;
-                                ctx.fillText(c, x, startY);
-                                x += ctx.measureText(c).width;
-                            }
-                        }
-
-                        // tambahkan spasi ekstra setelah kata (kecuali kata terakhir)
-                        if (i < lineWords.length - 1) {
-                            x += extraSpace;
-                        }
-                    }
-                    startY += lineHeight;
-                }
-            }
-
-            // ----- fungsi utama render -----
-            async function render() {
-                await loadEmojis(teks);
-
-                // bersihkan canvas dengan warna latar dari bgColor
-                ctx.clearRect(0, 0, W, H);
-                ctx.fillStyle = bgColor;
-                ctx.fillRect(0, 0, W, H);
-
-                // aktifkan filter blur (hitam putih tetap diterapkan pada gambar dan teks)
-                ctx.filter = 'blur(2px)';
-                ctx.fillStyle = textColor;   // warna teks sesuai pilihan
-                ctx.shadowColor = 'transparent';
-
-                // cari ukuran font optimal
-                const optimalFs = findMaxFontSize(10, 200);
-                if (optimalFs < 10) {
-                    ctx.font = '20px ' + font;
-                    ctx.fillText('teks terlalu panjang', PADDING, H/2);
-                    return;
-                }
-
-                // dapatkan lines dengan ukuran font optimal
-                const lines = wrap(teks, maxWidth, optimalFs);
-                drawJustified(lines, optimalFs);
-            }
-
-            render().catch(console.error);
-        })();
-    </script>
-</body>
-</html>`
-}, {
-  html: ({
-    text = "Hai Bang, Apa Kabar?",
-    output = "png"
-  }) => `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Teks Justify di Background Putih</title>
-    <link rel='stylesheet' href='https://fonts.googleapis.com/css2?family=Noto+Sans+Display:wght@400&display=swap'>
-    <style>
-        body { margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; background-color: #f0f0f0; }
-        #container {
-            position: relative;
-            width: 600px;
-            height: 600px;
-            background-color: #ffffff;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-        #textOverlay {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 2;
-            color: #000000;
-            font-weight: 500;
-            font-family: 'Noto Sans Display', arial_narrowregular, 'Arial Narrow', Arial, sans-serif;
-            font-size: 280px;
-            text-align: justify;
-            filter: blur(1.2px);
-            width: 90%;
-        }
-    </style>
-</head>
-<body>
-    <div id="container">
-        <div id="textOverlay"></div>
-    </div>
-    <script>
-        const teks = document.getElementById('textOverlay');
-        const wadah = document.getElementById('container');
-        const kalimat = '${text}';
-        const kataKata = kalimat.split(' ');
-        let indeks = 0;
-        const keluaran = '${output}';
-
-        function aturUkuranFont() {
-            const lebarTersedia = wadah.offsetWidth * 0.9;
-            const elemenUkur = document.createElement('span');
-            elemenUkur.style.visibility = 'hidden';
-            elemenUkur.style.position = 'absolute';
-            elemenUkur.style.whiteSpace = 'nowrap';
-            elemenUkur.style.fontFamily = window.getComputedStyle(teks).fontFamily;
-            elemenUkur.style.fontWeight = window.getComputedStyle(teks).fontWeight;
-            document.body.appendChild(elemenUkur);
-
-            let ukuranFontSaatIni = parseInt(window.getComputedStyle(teks).fontSize);
-
-            if (keluaran === 'gif') {
-                elemenUkur.textContent = teks.textContent + (indeks < kataKata.length ? " " + kataKata[indeks] : "");
-            } else {
-                elemenUkur.textContent = kataKata.join(" ");
-            }
-
-            while (elemenUkur.offsetWidth > lebarTersedia && ukuranFontSaatIni > 10) {
-                ukuranFontSaatIni--;
-                teks.style.fontSize = ukuranFontSaatIni + 'px';
-                elemenUkur.style.fontSize = ukuranFontSaatIni + 'px';
-            }
-
-            document.body.removeChild(elemenUkur);
-        }
-
-        function tampilKataBerikutnya() {
-            if (indeks < kataKata.length) {
-                teks.textContent += (indeks === 0 ? "" : " ") + kataKata[indeks];
-                indeks++;
-                aturUkuranFont();
-                if (keluaran === 'gif' && indeks < kataKata.length) setTimeout(tampilKataBerikutnya, 800);
-            }
-        }
-
-        function tampilSemuaTeks() {
-            teks.textContent = kataKata.join(" ");
-            aturUkuranFont();
-        }
-
-        if (keluaran === 'gif') {
-            tampilKataBerikutnya();
-        } else {
-            tampilSemuaTeks();
-        }
-    </script>
-</body>
-</html>`
-}, {
-  html: ({
-    text = "Hai Bang, Apa Kabar?",
-    output = "png"
-  }) => `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Teks Justify di Background Putih</title>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
-    <style>
-        body { margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; background-color: #f0f0f0; }
-        #container {
-            position: relative;
-            width: 600px;
-            height: 600px;
-            background-color: #ffffff;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-        #textOverlay {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 2;
-            color: #000000;
-            font-weight: 500;
-            font-family: 'Poppins', sans-serif;
-            font-size: 280px;
-            text-align: justify;
-            filter: blur(1.2px);
-            width: 90%;
-        }
-    </style>
-</head>
-<body>
-    <div id="container">
-        <div id="textOverlay"></div>
-    </div>
-    <script>
-        const teks = document.getElementById('textOverlay');
-        const wadah = document.getElementById('container');
-        const kalimat = '${text}';
-        const kataKata = kalimat.split(' ');
-        let indeks = 0;
-        const keluaran = '${output}';
-
-        function aturUkuranFont() {
-            const lebarTersedia = wadah.offsetWidth * 0.9;
-            const elemenUkur = document.createElement('span');
-            elemenUkur.style.visibility = 'hidden';
-            elemenUkur.style.position = 'absolute';
-            elemenUkur.style.whiteSpace = 'nowrap';
-            elemenUkur.style.fontFamily = window.getComputedStyle(teks).fontFamily;
-            elemenUkur.style.fontWeight = window.getComputedStyle(teks).fontWeight;
-            document.body.appendChild(elemenUkur);
-
-            let ukuranFontSaatIni = parseInt(window.getComputedStyle(teks).fontSize);
-
-            if (keluaran === 'gif') {
-                elemenUkur.textContent = teks.textContent + (indeks < kataKata.length ? " " + kataKata[indeks] : "");
-            } else {
-                elemenUkur.textContent = kataKata.join(" ");
-            }
-
-            while (elemenUkur.offsetWidth > lebarTersedia && ukuranFontSaatIni > 10) {
-                ukuranFontSaatIni--;
-                teks.style.fontSize = ukuranFontSaatIni + 'px';
-                elemenUkur.style.fontSize = ukuranFontSaatIni + 'px';
-            }
-
-            document.body.removeChild(elemenUkur);
-        }
-
-        function tampilKataBerikutnya() {
-            if (indeks < kataKata.length) {
-                teks.textContent += (indeks === 0 ? "" : " ") + kataKata[indeks];
-                indeks++;
-                aturUkuranFont();
-                if (keluaran === 'gif' && indeks < kataKata.length) setTimeout(tampilKataBerikutnya, 800);
-            }
-        }
-
-        function tampilSemuaTeks() {
-            teks.textContent = kataKata.join(" ");
-            aturUkuranFont();
-        }
-
-        if (keluaran === 'gif') {
-            tampilKataBerikutnya();
-        } else {
-            tampilSemuaTeks();
-        }
-    </script>
-</body>
-</html>`
-}, {
-  html: ({
-    text = "Hai Bang, Apa Kabar?",
-    output = "png"
-  }) => `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Teks Justify di Background Putih</title>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
-    <style>
-        body { margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; background-color: #f0f0f0; }
-        #container {
-            position: relative;
-            width: 600px;
-            height: 600px;
-            background-color: #ffffff;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-        #textOverlay {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 2;
-            color: #000000;
-            font-weight: 500;
-            font-family: 'Roboto', sans-serif;
-            font-size: 280px;
-            text-align: justify;
-            filter: blur(1.2px);
-            width: 90%;
-        }
-    </style>
-</head>
-<body>
-    <div id="container">
-        <div id="textOverlay"></div>
-    </div>
-    <script>
-        const teks = document.getElementById('textOverlay');
-        const wadah = document.getElementById('container');
-        const kalimat = '${text}';
-        const kataKata = kalimat.split(' ');
-        let indeks = 0;
-        const keluaran = '${output}';
-
-        function aturUkuranFont() {
-            const lebarTersedia = wadah.offsetWidth * 0.9;
-            const elemenUkur = document.createElement('span');
-            elemenUkur.style.visibility = 'hidden';
-            elemenUkur.style.position = 'absolute';
-            elemenUkur.style.whiteSpace = 'nowrap';
-            elemenUkur.style.fontFamily = window.getComputedStyle(teks).fontFamily;
-            elemenUkur.style.fontWeight = window.getComputedStyle(teks).fontWeight;
-            document.body.appendChild(elemenUkur);
-
-            let ukuranFontSaatIni = parseInt(window.getComputedStyle(teks).fontSize);
-
-            if (keluaran === 'gif') {
-                elemenUkur.textContent = teks.textContent + (indeks < kataKata.length ? " " + kataKata[indeks] : "");
-            } else {
-                elemenUkur.textContent = kataKata.join(" ");
-            }
-
-            while (elemenUkur.offsetWidth > lebarTersedia && ukuranFontSaatIni > 10) {
-                ukuranFontSaatIni--;
-                teks.style.fontSize = ukuranFontSaatIni + 'px';
-                elemenUkur.style.fontSize = ukuranFontSaatIni + 'px';
-            }
-
-            document.body.removeChild(elemenUkur);
-        }
-
-        function tampilKataBerikutnya() {
-            if (indeks < kataKata.length) {
-                teks.textContent += (indeks === 0 ? "" : " ") + kataKata[indeks];
-                indeks++;
-                aturUkuranFont();
-                if (keluaran === 'gif' && indeks < kataKata.length) setTimeout(tampilKataBerikutnya, 800);
-            }
-        }
-
-        function tampilSemuaTeks() {
-            teks.textContent = kataKata.join(" ");
-            aturUkuranFont();
-        }
-
-        if (keluaran === 'gif') {
-            tampilKataBerikutnya();
-        } else {
-            tampilSemuaTeks();
-        }
-    </script>
-</body>
-</html>`
-}, {
-  html: ({
-    text = "Hai Bang, Apa Kabar?",
-    output = "png"
-  }) => `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Teks Justify di Background Putih</title>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
-    <style>
-        body { margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; background-color: #f0f0f0; }
-        #container {
-            position: relative;
-            width: 600px;
-            height: 600px;
-            background-color: #ffffff;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-        #textOverlay {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 2;
-            color: #000000;
-            font-weight: 500;
-            font-family: 'Montserrat', sans-serif;
-            font-size: 280px;
-            text-align: justify;
-            filter: blur(1.2px);
-            width: 90%;
-        }
-    </style>
-</head>
-<body>
-    <div id="container">
-        <div id="textOverlay"></div>
-    </div>
-    <script>
-        const teks = document.getElementById('textOverlay');
-        const wadah = document.getElementById('container');
-        const kalimat = '${text}';
-        const kataKata = kalimat.split(' ');
-        let indeks = 0;
-        const keluaran = '${output}';
-
-        function aturUkuranFont() {
-            const lebarTersedia = wadah.offsetWidth * 0.9;
-            const elemenUkur = document.createElement('span');
-            elemenUkur.style.visibility = 'hidden';
-            elemenUkur.style.position = 'absolute';
-            elemenUkur.style.whiteSpace = 'nowrap';
-            elemenUkur.style.fontFamily = window.getComputedStyle(teks).fontFamily;
-            elemenUkur.style.fontWeight = window.getComputedStyle(teks).fontWeight;
-            document.body.appendChild(elemenUkur);
-
-            let ukuranFontSaatIni = parseInt(window.getComputedStyle(teks).fontSize);
-
-            if (keluaran === 'gif') {
-                elemenUkur.textContent = teks.textContent + (indeks < kataKata.length ? " " + kataKata[indeks] : "");
-            } else {
-                elemenUkur.textContent = kataKata.join(" ");
-            }
-
-            while (elemenUkur.offsetWidth > lebarTersedia && ukuranFontSaatIni > 10) {
-                ukuranFontSaatIni--;
-                teks.style.fontSize = ukuranFontSaatIni + 'px';
-                elemenUkur.style.fontSize = ukuranFontSaatIni + 'px';
-            }
-
-            document.body.removeChild(elemenUkur);
-        }
-
-        function tampilKataBerikutnya() {
-            if (indeks < kataKata.length) {
-                teks.textContent += (indeks === 0 ? "" : " ") + kataKata[indeks];
-                indeks++;
-                aturUkuranFont();
-                if (keluaran === 'gif' && indeks < kataKata.length) setTimeout(tampilKataBerikutnya, 800);
-            }
-        }
-
-        function tampilSemuaTeks() {
-            teks.textContent = kataKata.join(" ");
-            aturUkuranFont();
-        }
-
-        if (keluaran === 'gif') {
-            tampilKataBerikutnya();
-        } else {
-            tampilSemuaTeks();
-        }
-    </script>
-</body>
-</html>`
-}, {
-  html: ({
-    text = "Hai Bang, Apa Kabar?",
-    output = "png"
-  }) => `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Teks Justify di Background Putih</title>
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&display=swap" rel="stylesheet">
-    <style>
-        body { margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; background-color: #f0f0f0; }
-        #container {
-            position: relative;
-            width: 600px;
-            height: 600px;
-            background-color: #ffffff;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-        #textOverlay {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 2;
-            color: #000000;
-            font-weight: 500;
-            font-family: 'Playfair Display', serif;
-            font-size: 280px;
-            text-align: justify;
-            filter: blur(1.2px);
-            width: 90%;
-        }
-    </style>
-</head>
-<body>
-    <div id="container">
-        <div id="textOverlay"></div>
-    </div>
-    <script>
-        const teks = document.getElementById('textOverlay');
-        const wadah = document.getElementById('container');
-        const kalimat = '${text}';
-        const kataKata = kalimat.split(' ');
-        let indeks = 0;
-        const keluaran = '${output}';
-
-        function aturUkuranFont() {
-            const lebarTersedia = wadah.offsetWidth * 0.9;
-            const elemenUkur = document.createElement('span');
-            elemenUkur.style.visibility = 'hidden';
-            elemenUkur.style.position = 'absolute';
-            elemenUkur.style.whiteSpace = 'nowrap';
-            elemenUkur.style.fontFamily = window.getComputedStyle(teks).fontFamily;
-            elemenUkur.style.fontWeight = window.getComputedStyle(teks).fontWeight;
-            document.body.appendChild(elemenUkur);
-
-            let ukuranFontSaatIni = parseInt(window.getComputedStyle(teks).fontSize);
-
-            if (keluaran === 'gif') {
-                elemenUkur.textContent = teks.textContent + (indeks < kataKata.length ? " " + kataKata[indeks] : "");
-            } else {
-                elemenUkur.textContent = kataKata.join(" ");
-            }
-
-            while (elemenUkur.offsetWidth > lebarTersedia && ukuranFontSaatIni > 10) {
-                ukuranFontSaatIni--;
-                teks.style.fontSize = ukuranFontSaatIni + 'px';
-                elemenUkur.style.fontSize = ukuranFontSaatIni + 'px';
-            }
-
-            document.body.removeChild(elemenUkur);
-        }
-
-        function tampilKataBerikutnya() {
-            if (indeks < kataKata.length) {
-                teks.textContent += (indeks === 0 ? "" : " ") + kataKata[indeks];
-                indeks++;
-                aturUkuranFont();
-                if (keluaran === 'gif' && indeks < kataKata.length) setTimeout(tampilKataBerikutnya, 800);
-            }
-        }
-
-        function tampilSemuaTeks() {
-            teks.textContent = kataKata.join(" ");
-            aturUkuranFont();
-        }
-
-        if (keluaran === 'gif') {
-            tampilKataBerikutnya();
-        } else {
-            tampilSemuaTeks();
-        }
     </script>
 </body>
 </html>`

@@ -23,51 +23,17 @@ class HtmlToImg {
     }
   }
   async generate({
-    text = "Jane Doe",
     model: template = 1,
     type = "v5",
     ...rest
   }) {
-    const templateSizes = {
-      1: {
-        width: 800,
-        height: 800
-      },
-      2: {
-        width: 800,
-        height: 800
-      },
-      3: {
-        width: 600,
-        height: 600
-      },
-      4: {
-        width: 600,
-        height: 600
-      },
-      5: {
-        width: 600,
-        height: 600
-      },
-      6: {
-        width: 600,
-        height: 600
-      },
-      7: {
-        width: 600,
-        height: 600
-      }
-    };
-    const {
-      width,
-      height
-    } = templateSizes[template] || templateSizes[1];
+    const finalWidth = rest?.width || 800;
+    const finalHeight = rest?.height || 800;
     const data = {
-      width: width,
-      height: height,
+      width: finalWidth,
+      height: finalHeight,
       html: Html({
         template: template,
-        text: text,
         ...rest
       })
     };
@@ -88,24 +54,18 @@ export default async function handler(req, res) {
   const params = req.method === "GET" ? req.query : req.body;
   const htmlToImg = new HtmlToImg();
   try {
-    console.log("[handler] Received request with parameters:", params);
     const imageUrl = await htmlToImg.generate(params);
     if (imageUrl) {
-      console.log("[handler] Image URL received:", imageUrl);
       const imageBuffer = await htmlToImg.getImageBuffer(imageUrl);
       res.setHeader("Content-Type", "image/png");
-      console.log("[handler] Sending image buffer as response.");
       return res.status(200).send(imageBuffer);
-    } else {
-      console.warn("[handler] No image URL returned from the service.");
-      res.status(400).json({
-        error: "No image URL returned from the service"
-      });
     }
+    return res.status(400).json({
+      error: "No image URL returned from the service"
+    });
   } catch (error) {
-    console.error("[handler] Error generating fansign image:", error);
-    res.status(500).json({
-      error: "Failed to generate fansign image"
+    return res.status(500).json({
+      error: error?.message || "Failed to generate fansign image"
     });
   }
 }

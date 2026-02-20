@@ -131,16 +131,17 @@ export default async function handler(req, res) {
   const params = req.method === "GET" ? req.query : req.body;
   if (!params.query) {
     return res.status(400).json({
-      error: "query are required"
+      error: "Parameter 'query' diperlukan"
     });
   }
+  const api = new StickerSearch();
   try {
-    const sticker = new StickerSearch();
-    const response = await sticker.search(params);
-    return res.status(200).json(response);
+    const data = await api.search(params);
+    return res.status(200).json(data);
   } catch (error) {
-    res.status(500).json({
-      error: error.message || "Internal Server Error"
+    const errorMessage = error.message || "Terjadi kesalahan saat memproses URL";
+    return res.status(500).json({
+      error: errorMessage
     });
   }
 }

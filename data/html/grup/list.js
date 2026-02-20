@@ -262,7 +262,6 @@ const templates = [{
     cr_name = "PIXEL_PUNK",
     cr_stat = "MOD",
     ds_name = "CRT_HACKER",
-    cr_stat = "MOD",
     ds_stat = "MOD",
     act_title = "SIGNAL STRENGTH",
     avg_title = "MOON PHASE",
