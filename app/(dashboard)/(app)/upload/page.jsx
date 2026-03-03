@@ -234,7 +234,7 @@ const UploaderPage = () => {
 
           <SimpleBar className="max-h-[calc(100vh-230px)]">
             <div className="p-4 sm:p-6 space-y-6">
-              <form onSubmit={handleUpload} className="space-y-4 sm:space-y-5" enctype="multipart/form-data">
+              <form onSubmit={handleUpload} className="space-y-4 sm:space-y-5">
                 {/* Host Selection */}
                 <div className="bg-slate-100/70 dark:bg-slate-800/40 p-4 sm:p-5 rounded-lg border border-slate-200 dark:border-slate-700/60">
                   <label htmlFor="hostSelect" className="block text-sm sm:text-base font-medium text-teal-700 dark:text-teal-300 mb-2 flex items-center">
