@@ -54,12 +54,9 @@ const nextConfig = withPWA({
   poweredByHeader: false,
   experimental: {
     nextScriptWorkers: true,
-    serverActions: true,
-    amp: {
-      skipValidation: true
-    },
-    turbopack: {},
+    serverActions: true
   },
+  turbopack: {},
   images: {
     domains: [apiConfig.DOMAIN_URL, "cdn.weatherapi.com", "tile.openstreetmap.org", "www.chess.com", "deckofcardsapi.com", "raw.githubusercontent.com"],
     minimumCacheTTL: 60,
