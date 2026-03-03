@@ -1,13 +1,7 @@
 @use "sass:meta";
-
-/* Pastikan ini ada di paling atas setelah @use */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-/* Baru kemudian import file SCSS kamu */
-@use "variables";
-@use "main";
 
 
 @layer base {
