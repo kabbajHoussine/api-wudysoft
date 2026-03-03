@@ -1,7 +1,4 @@
 @use "sass:meta";
-@import "tailwindcss"; /* Jika menggunakan Tailwind v4 */
-
-/* Atau jika masih menggunakan v3 style di dalam SCSS: */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

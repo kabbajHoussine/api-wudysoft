@@ -56,7 +56,9 @@ const nextConfig = withPWA({
     nextScriptWorkers: true,
     serverActions: true
   },
-  turbopack: {},
+  sassOptions: {
+    silenceDeprecations: ['import'],
+  },
   images: {
     minimumCacheTTL: 60,
     remotePatterns: [
