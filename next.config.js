@@ -57,7 +57,8 @@ const nextConfig = withPWA({
     serverActions: true,
     amp: {
       skipValidation: true
-    }
+    },
+    turbopack: {},
   },
   images: {
     domains: [apiConfig.DOMAIN_URL, "cdn.weatherapi.com", "tile.openstreetmap.org", "www.chess.com", "deckofcardsapi.com", "raw.githubusercontent.com"],
