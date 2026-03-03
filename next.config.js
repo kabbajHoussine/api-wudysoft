@@ -5,7 +5,6 @@ const withPWA = require("@ducanh2912/next-pwa").default({
   cacheOnFrontEndNav: true,
   aggressiveFrontEndNavCaching: true,
   reloadOnOnline: true,
-  swcMinify: true,
   disable: false,
   workboxOptions: {
     disableDevLogs: true
@@ -48,13 +47,17 @@ const securityHeaders = [...createSecureHeaders({
 }];
 const nextConfig = withPWA({
   reactStrictMode: true,
-  swcMinify: true,
   productionBrowserSourceMaps: false,
   compress: true,
   poweredByHeader: false,
   experimental: {
     nextScriptWorkers: true,
-    serverActions: true
+    serverActions: true,
+    turbopack: {
+      resolveAlias: {
+        '@components': './components',
+      }
+    }
   },
   sassOptions: {
     silenceDeprecations: ['import'],
@@ -176,6 +179,7 @@ const nextConfig = withPWA({
       "utf-8-validate": "commonjs utf-8-validate",
       bufferutil: "commonjs bufferutil"
     });
+    config.resolve.alias['@components'] = path.resolve(__dirname, 'components');
     if (!dev && !isServer) {
       const WebpackObfuscator = require("webpack-obfuscator");
       config.plugins.push(new WebpackObfuscator({
