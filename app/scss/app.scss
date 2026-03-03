@@ -1,3 +1,4 @@
+@use "sass:meta";
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -88,32 +89,32 @@
   }
 }
 @layer components {
-  @import "components/table.scss";
-  @import "components/map.scss";
-  @import "components/progress";
-  @import "components/tippy";
-  @import "components/swiper";
-  @import "components/alert";
-  @import "components/card";
-  @import "components/auth";
-  @import "components/button";
-  @import "components/badge";
-  @import "components/typography";
-  @import "components/form";
-  @import "components/input-group";
-  @import "components/react-select";
-  @import "components/pagination";
-  @import "components/breadcrumbs";
-  @import "layout/header";
-  @import "layout/footer";
-  @import "layout/sidebar";
-  @import "layout/settings";
-  @import "utility/mix";
-  @import "utility/loading";
-  @import "utility/css-animation";
-  @import "utility/calander";
-  @import "utility/full-calender";
-  @import "components/print.scss";
+  @include meta.load-css("components/table.scss");
+  @include meta.load-css("components/map.scss");
+  @include meta.load-css("components/progress");
+  @include meta.load-css("components/tippy");
+  @include meta.load-css("components/swiper");
+  @include meta.load-css("components/alert");
+  @include meta.load-css("components/card");
+  @include meta.load-css("components/auth");
+  @include meta.load-css("components/button");
+  @include meta.load-css("components/badge");
+  @include meta.load-css("components/typography");
+  @include meta.load-css("components/form");
+  @include meta.load-css("components/input-group");
+  @include meta.load-css("components/react-select");
+  @include meta.load-css("components/pagination");
+  @include meta.load-css("components/breadcrumbs");
+  @include meta.load-css("layout/header");
+  @include meta.load-css("layout/footer");
+  @include meta.load-css("layout/sidebar");
+  @include meta.load-css("layout/settings");
+  @include meta.load-css("utility/mix");
+  @include meta.load-css("utility/loading");
+  @include meta.load-css("utility/css-animation");
+  @include meta.load-css("utility/calander");
+  @include meta.load-css("utility/full-calender");
+  @include meta.load-css("components/print.scss");
 }
 @layer utilities {
 }

@@ -58,33 +58,12 @@ const nextConfig = withPWA({
   },
   turbopack: {},
   images: {
+    domains: [apiConfig.DOMAIN_URL, "cdn.weatherapi.com", "tile.openstreetmap.org", "www.chess.com", "deckofcardsapi.com", "raw.githubusercontent.com"],
     minimumCacheTTL: 60,
-    remotePatterns: [
-      {
-        protocol: "https",
-        hostname: apiConfig.DOMAIN_URL.replace(/^https?:\/\//, ""),
-      },
-      {
-        protocol: "https",
-        hostname: "cdn.weatherapi.com",
-      },
-      {
-        protocol: "https",
-        hostname: "tile.openstreetmap.org",
-      },
-      {
-        protocol: "https",
-        hostname: "www.chess.com",
-      },
-      {
-        protocol: "https",
-        hostname: "deckofcardsapi.com",
-      },
-      {
-        protocol: "https",
-        hostname: "raw.githubusercontent.com",
-      },
-    ],
+    remotePatterns: [{
+      protocol: "https",
+      hostname: "**"
+    }]
   },
   async headers() {
     const staticCache = [{
