@@ -159,7 +159,7 @@ async function performTracking(req) {
     console.error(`[Middleware-Tracking] Gagal mencatat pengunjung untuk ${req.url}: ${errorMessage}`);
   }
 }
-export async function middleware(req) {
+export async function proxy(req) {
   const url = new URL(req.url);
   const {
     pathname
