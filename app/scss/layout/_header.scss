@@ -1,4 +1,3 @@
-@use "sass:meta";
 .has-sticky-header {
   @apply my-5 top-5 rounded-md sticky  z-[999];
   .app-header {
@@ -30,4 +29,4 @@
     mask: linear-gradient(black, black 18%, transparent 100%);
   }
 }
-@include meta.load-css("menu");
+@import "menu";

@@ -1,10 +1,3 @@
-import "react-toastify/dist/ReactToastify.css";
-import "simplebar-react/dist/simplebar.min.css";
-import "flatpickr/dist/themes/light.css";
-import "react-svg-map/lib/index.css";
-import "leaflet/dist/leaflet.css";
-import "./scss/app.scss";
-
 import Script from 'next/script';
 import { Inter } from "next/font/google";
 import { getServerSession } from "next-auth";
@@ -61,9 +54,10 @@ export const metadata = {
   alternates: {
     canonical: domain,
   },
-  
+  viewport: "minimum-scale=1, initial-scale=1, width=device-width, shrink-to-fit=no, user-scalable=no, viewport-fit=cover",
   applicationName: "DashCode API Dashboard",
   manifest: "/manifest.json",
+  themeColor: "#2196F3",
   icons: {
     icon: [
       { url: faviconPngPath, sizes: "any" },
@@ -122,15 +116,6 @@ export const metadata = {
     google: "E5QX7KBlw_hIr1JP7QY6n_A74Uys6lCj-KfGws9UrV4",
   },
   generator: "Next.js 13",
-};
-export const viewport = {
-  width: "device-width",
-  initialScale: 1,
-  minimumScale: 1,
-  shrinkToFit: "no",
-  userScalable: "no",
-  viewportFit: "cover",
-  themeColor: "#2196F3",
 };
 
 export default async function RootLayout({ children }) {

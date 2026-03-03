@@ -5,6 +5,7 @@ const withPWA = require("@ducanh2912/next-pwa").default({
   cacheOnFrontEndNav: true,
   aggressiveFrontEndNavCaching: true,
   reloadOnOnline: true,
+  swcMinify: true,
   disable: false,
   workboxOptions: {
     disableDevLogs: true
@@ -47,49 +48,24 @@ const securityHeaders = [...createSecureHeaders({
 }];
 const nextConfig = withPWA({
   reactStrictMode: true,
+  swcMinify: true,
   productionBrowserSourceMaps: false,
   compress: true,
   poweredByHeader: false,
   experimental: {
     nextScriptWorkers: true,
     serverActions: true,
-    turbopack: {
-      resolveAlias: {
-        '@components': './components',
-      }
+    amp: {
+      skipValidation: true
     }
   },
-  sassOptions: {
-    silenceDeprecations: ['import'],
-  },
   images: {
+    domains: [apiConfig.DOMAIN_URL, "cdn.weatherapi.com", "tile.openstreetmap.org", "www.chess.com", "deckofcardsapi.com", "raw.githubusercontent.com"],
     minimumCacheTTL: 60,
-    remotePatterns: [
-      {
-        protocol: "https",
-        hostname: apiConfig.DOMAIN_URL.replace(/^https?:\/\//, ""),
-      },
-      {
-        protocol: "https",
-        hostname: "cdn.weatherapi.com",
-      },
-      {
-        protocol: "https",
-        hostname: "tile.openstreetmap.org",
-      },
-      {
-        protocol: "https",
-        hostname: "www.chess.com",
-      },
-      {
-        protocol: "https",
-        hostname: "deckofcardsapi.com",
-      },
-      {
-        protocol: "https",
-        hostname: "raw.githubusercontent.com",
-      },
-    ],
+    remotePatterns: [{
+      protocol: "https",
+      hostname: "**"
+    }]
   },
   async headers() {
     const staticCache = [{
@@ -179,7 +155,6 @@ const nextConfig = withPWA({
       "utf-8-validate": "commonjs utf-8-validate",
       bufferutil: "commonjs bufferutil"
     });
-    
     if (!dev && !isServer) {
       const WebpackObfuscator = require("webpack-obfuscator");
       config.plugins.push(new WebpackObfuscator({
