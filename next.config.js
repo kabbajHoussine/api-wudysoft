@@ -179,7 +179,7 @@ const nextConfig = withPWA({
       "utf-8-validate": "commonjs utf-8-validate",
       bufferutil: "commonjs bufferutil"
     });
-    config.resolve.alias['@components'] = path.resolve(__dirname, 'components');
+    
     if (!dev && !isServer) {
       const WebpackObfuscator = require("webpack-obfuscator");
       config.plugins.push(new WebpackObfuscator({
